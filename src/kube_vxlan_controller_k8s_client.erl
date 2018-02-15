@@ -1,6 +1,8 @@
 -module(kube_vxlan_controller_k8s_client).
 
 -export([
+    http_request/3,
+
     http_stream_request/3,
     http_stream_read/1,
 
@@ -11,9 +13,27 @@
 
 -define(Ws, kube_vxlan_controller_ws).
 
--define(HttpStreamRecvTimeout, 5000).
+-define(JsonDecodeOptions, [return_maps, {labels, atom}]).
 
-%http_request(Resource, Query, Config) ->
+-define(HttpStreamRecvTimeout, 30 * 1000). % milliseconds
+
+http_request(Resource, Query, _Config = #{
+    server := Server,
+    ca_cert_file := CaCertFile,
+    token := Token
+}) ->
+    Url = url(Server, Resource, Query),
+    Options = http_options(CaCertFile),
+
+    case hackney:request(get, Url, headers(Token), <<>>, Options) of
+        {ok, 200, _Headers, Ref} ->
+            {ok, Body} = hackney:body(Ref),
+            {ok, jsx:decode(<<"[", Body/binary, "]">>, ?JsonDecodeOptions)};
+        {ok, Code, Headers, Ref} ->
+            {ok, Body} = hackney:body(Ref),
+            {error, {Code, Headers, Body}};
+        {error, Reason} -> {error, Reason}
+    end.
 
 http_stream_request(Resource, Query, _Config = #{
     server := Server,
@@ -21,7 +41,7 @@ http_stream_request(Resource, Query, _Config = #{
     token := Token
 }) ->
     Url = url(Server, Resource, Query),
-    Options = http_stream_options(CaCertFile),
+    Options = http_options(CaCertFile),
 
     case hackney:request(get, Url, headers(Token), <<>>, Options) of
         {ok, 200, _Headers, Ref} -> {ok, Ref};
@@ -35,13 +55,14 @@ http_stream_read(Stream) -> http_stream_read(Stream, false).
 
 http_stream_read(Stream, DecodeFun) ->
     case hackney:stream_body(Stream) of
+        done -> {ok, done};
         {ok, Data} -> http_stream_to_json(Stream, Data, DecodeFun);
         {error, Reason} -> {error, Reason}
     end.
 
 http_stream_to_json(_Stream, <<>>, false) -> {ok, []};
 http_stream_to_json(Stream, Data, false) ->
-    {incomplete, DecodeFun} = jsx:decode(<<"[">>, [stream]),
+    {incomplete, DecodeFun} = jsx:decode(<<"[">>, [stream|?JsonDecodeOptions]),
     http_stream_to_json(Stream, Data, DecodeFun);
 
 http_stream_to_json(Stream, <<>>, DecodeFun) ->
@@ -95,11 +116,11 @@ headers(Token) -> [
     {"Authorization", "Bearer " ++ Token}
 ].
 
-ws_options(CaCertFile) -> [
-    {cacertfile, CaCertFile}
-].
-
-http_stream_options(CaCertFile) -> [
+http_options(CaCertFile) -> [
     {ssl_options, [{cacertfile, CaCertFile}]},
     {recv_timeout, ?HttpStreamRecvTimeout}
+].
+
+ws_options(CaCertFile) -> [
+    {cacertfile, CaCertFile}
 ].
