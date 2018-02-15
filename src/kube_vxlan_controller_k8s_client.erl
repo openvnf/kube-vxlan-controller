@@ -11,6 +11,8 @@
 
 -define(Ws, kube_vxlan_controller_ws).
 
+-define(HttpStreamRecvTimeout, 5000).
+
 %http_request(Resource, Query, Config) ->
 
 http_stream_request(Resource, Query, _Config = #{
@@ -19,13 +21,14 @@ http_stream_request(Resource, Query, _Config = #{
     token := Token
 }) ->
     Url = url(Server, Resource, Query),
-    Options = [
-        {ssl_options, [{cacertfile, CaCertFile}]},
-        {recv_timeout, infinity}
-    ],
+    Options = http_stream_options(CaCertFile),
+
     case hackney:request(get, Url, headers(Token), <<>>, Options) of
-        {ok, 200, _, Ref} -> {ok, Ref};
-        Other -> Other
+        {ok, 200, _Headers, Ref} -> {ok, Ref};
+        {ok, Code, Headers, Ref} ->
+            {ok, Body} = hackney:body(Ref),
+            {error, {Code, Headers, Body}};
+        {error, Reason} -> {error, Reason}
     end.
 
 http_stream_read(Stream) -> http_stream_read(Stream, false).
@@ -63,7 +66,7 @@ ws_connect(Resource, Query, _Config = #{
     token := Token
 }) ->
     Url = url(Server, Resource, Query),
-    ?Ws:connect(Url, headers(Token), options(CaCertFile)).
+    ?Ws:connect(Url, headers(Token), ws_options(CaCertFile)).
 
 ws_close(Socket) -> ?Ws:close(Socket).
 
@@ -92,6 +95,11 @@ headers(Token) -> [
     {"Authorization", "Bearer " ++ Token}
 ].
 
-options(CaCertFile) -> [
+ws_options(CaCertFile) -> [
     {cacertfile, CaCertFile}
+].
+
+http_stream_options(CaCertFile) -> [
+    {ssl_options, [{cacertfile, CaCertFile}]},
+    {recv_timeout, ?HttpStreamRecvTimeout}
 ].
