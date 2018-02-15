@@ -1,7 +1,7 @@
 -module(kube_vxlan_controller_ws).
 
 -export([
-    connect/1, connect/2, disconnect/1,
+    connect/1, connect/2, connect/3, disconnect/1,
     send/2, recv/1
 ]).
 
@@ -21,20 +21,22 @@
     {send_timeout_close, true}
 ]).
 
-connect(Url) -> connect(Url, []).
+connect(Url) -> connect(Url, [], []).
+connect(Url, Headers) -> connect(Url, Headers, []).
 
-connect(Url, Headers) when is_list(Url) ->
+connect(Url, Headers, Options) when is_list(Url) ->
     case http_uri:parse(Url) of
-        {ok, Result} -> connect(Result, Headers);
+        {ok, Result} -> connect(Result, Headers, Options);
         {error, Reason} -> {error, Reason}
     end;
 
-connect({Scheme, _UserInfo, Host, Port, Path, Query}, Headers) ->
-    connect({tcp_module(Scheme), Host, Port, Path, Query}, Headers); 
+connect({Scheme, _UserInfo, Host, Port, Path, Query}, Headers, Options) ->
+    connect({tcp_module(Scheme), Host, Port, Path, Query}, Headers, Options);
 
-connect({Tcp, Host, Port, Path, Query}, Headers) ->
+connect({Tcp, Host, Port, Path, Query}, Headers, Options) ->
+    ConnectOptions = ?ConnectOptions ++ Options,
     ?Utils:do_while([
-        {connect, fun Tcp:connect/3, [Host, Port, ?ConnectOptions]},
+        {connect, fun Tcp:connect/3, [Host, Port, ConnectOptions]},
         {open, fun wsock_handshake:open/3, [Path ++ Query, Host, Port]},
         {encode, fun wsock_http_encode/2, [{open}, Headers]},
         {send, fun Tcp:send/2, [{connect}, {encode}]},
