@@ -9,8 +9,8 @@
 -define(LogFormat, "~s~4..0b-~2..0b-~2..0bT~2..0b:~2..0b:~2..0b.~3..0bZ ~p~n").
 
 info(Term) -> log(info, Term).
-warning(Term) -> log(info, Term).
-error(Term) -> log(info, Term).
+warning(Term) -> log(warning, Term).
+error(Term) -> log(error, Term).
 
 log(Type, Term) ->
     Now = {_MegaSecs, _Secs, Mcs} = erlang:timestamp(),
