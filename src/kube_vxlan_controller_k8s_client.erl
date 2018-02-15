@@ -17,7 +17,10 @@
 
 -define(HttpStreamRecvTimeout, 30 * 1000). % milliseconds
 
-http_request(Resource, Query, _Config = #{
+http_request(Resource, Query, Config) ->
+    http_request(get, Resource, Query, <<>>, Config).
+
+http_request(Method, Resource, Query, Body, _Config = #{
     server := Server,
     ca_cert_file := CaCertFile,
     token := Token
@@ -25,7 +28,7 @@ http_request(Resource, Query, _Config = #{
     Url = url(Server, Resource, Query),
     Options = http_options(CaCertFile),
 
-    case hackney:request(get, Url, headers(Token), <<>>, Options) of
+    case hackney:request(Method, Url, headers(Token), Body, Options) of
         {ok, 200, _Headers, Ref} ->
             {ok, Body} = hackney:body(Ref),
             {ok, jsx:decode(<<"[", Body/binary, "]">>, ?JsonDecodeOptions)};
