@@ -7,7 +7,7 @@
     http_stream_read/1,
 
     ws_connect/3,
-    ws_close/1,
+    ws_disconnect/1,
     ws_recv/1
 ]).
 
@@ -92,7 +92,7 @@ ws_connect(Resource, Query, _Config = #{
     Url = url(Server, Resource, Query),
     ?Ws:connect(Url, headers(Token), ws_options(CaCertFile)).
 
-ws_close(Socket) -> ?Ws:close(Socket).
+ws_disconnect(Socket) -> ?Ws:disconnect(Socket).
 
 ws_recv(Socket) -> ws_recv(Socket, "").
 
