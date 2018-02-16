@@ -29,6 +29,12 @@
   }
 }).
 
+-define(AgentExecQuery, [
+    {"container", "alpine1"},
+    {"stdout", "true"},
+    {"stderr", "true"}
+]).
+
 %curl -X PATCH --cacert pki/ca.pem https://api.k8s.nce-01.fra-01.eu.cennso.net/apis/apps/v1beta2/namespaces/aalferov/deployments/alpine1 -H "Content-Type: application/strategic-merge-patch+json" --header "Authorization: Bearer $(cat pki/token)" -d '{"spec":{"template":{"spec":{"containers":[{"name":"vxlan-controller-agent","image":"alpine"}]}}}}'
 
 main(_) ->
@@ -82,16 +88,16 @@ process_event_fun(Config) -> fun(Event = #{
         uid => btl(Uid),
         name => btl(Name),
         pod_ip => btl(maps:get(podIP, Status, <<>>)),
-        vxlan_names => string:lexemes(VxlanNames, ?A8nVxlanNamesSep),
+        vxlan_names => string:lexemes(VxlanNames, ?A8nVxlanNamesSep)
     }, Config)
 end.
 
 process_event(Ev = #{namespace := Namespace, name := Name}, Config) ->
-    ?Log:info(patch_pod(Namespace, Name, Config)).
+    ?Log:info(pod_patch(Namespace, Name, Config)).
 
-patch_pod(Namespace, PodName, Config) ->
+pod_patch(Namespace, Name, Config) ->
     ResourcePod = "/api/v1/namespaces/" ++ Namespace ++
-                  "/pods/" ++ PodName,
+                  "/pods/" ++ Name,
     {ok, [#{
       metadata := #{
         ownerReferences := [#{
@@ -101,7 +107,7 @@ patch_pod(Namespace, PodName, Config) ->
       }
     }]} = ?K8s:http_request(ResourcePod, [], Config),
 
-    ResourceReplicaSet = "/apis/extensions/v1/namespaces/" ++ Namespace ++
+    ResourceReplicaSet = "/apis/extensions/v1beta1/namespaces/" ++ Namespace ++
                          "/replicasets/" ++ btl(ReplicaSetName),
     {ok, [#{
       metadata := #{
@@ -111,6 +117,17 @@ patch_pod(Namespace, PodName, Config) ->
         }|_]
       }
     }]} = ?K8s:http_request(ResourceReplicaSet, [], Config),
-    ?Log:info(DeploymentName).
+    ?Log:info(DeploymentName),
+    pod_exec(Namespace, Name, "ip addr show", Config).
+
+pod_exec(Namespace, Name, Command, Config) ->
+    Resource = "/api/v1/namespaces/" ++ Namespace ++ "/pods/" ++ Name ++ "/exec",
+    Query = [{"command", CommandItem} || CommandItem <-
+             string:split(Command, " ", all)] ++ ?AgentExecQuery,
+
+    {ok, Socket} = ?K8s:ws_connect(Resource, Query, Config),
+    {ok, Result} = ?K8s:ws_recv(Socket),
+    ?K8s:ws_disconnect(Socket),
+    ?Log:info(Result).
 
 btl(B) -> binary_to_list(B).
