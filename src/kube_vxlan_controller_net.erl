@@ -33,12 +33,16 @@ vxlan_delete(Namespace, PodName, VxlanName, Config) ->
     pod_exec(Namespace, PodName, Command, Config).
 
 bridge_append(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
-    Command = "bridge fdb append to 00:00:00:00:00:00 " ++
-              "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
-    pod_exec(Namespace, PodName, Command, Config).
+    case bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) of
+        {ok, _Mac} -> ok;
+        false ->
+            Command = "bridge fdb append to 00:00:00:00:00:00 " ++
+                      "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
+            pod_exec(Namespace, PodName, Command, Config)
+    end.
 
 bridge_delete(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
-    case bridge_mac(Namespace, PodName, BridgeToIp, VxlanName, Config) of
+    case bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) of
         {ok, Mac} ->
             Command = "bridge fdb delete " ++ Mac ++ " " ++
                       "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
