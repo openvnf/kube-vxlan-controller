@@ -16,38 +16,41 @@
 -define(Utils, kube_vxlan_controller_utils).
 -define(Log, kube_vxlan_controller_log).
 
--define(AgentContainerName, "vxlan-controller-agent").
-
 vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config) ->
+    AgentContainerName = maps:get(agent_container_name, Config),
     Command = "ip link add " ++ VxlanName ++ " " ++
               "type vxlan id " ++ VxlanId ++ " dev eth0 dstport 0",
-    ?Pod:exec(Namespace, PodName, ?AgentContainerName, Command, Config).
+    ?Pod:exec(Namespace, PodName, AgentContainerName, Command, Config).
 
 vxlan_delete(Namespace, PodName, VxlanName, Config) ->
+    AgentContainerName = maps:get(agent_container_name, Config),
     Command = "ip link delete " ++ VxlanName,
-    ?Pod:exec(Namespace, PodName, ?AgentContainerName, Command, Config).
+    ?Pod:exec(Namespace, PodName, AgentContainerName, Command, Config).
 
 bridge_append(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
     case bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) of
         {ok, _Mac} -> ok;
         false ->
+            AgentContainerName = maps:get(agent_container_name, Config),
             Command = "bridge fdb append to 00:00:00:00:00:00 " ++
                       "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
-            ?Pod:exec(Namespace, PodName, ?AgentContainerName, Command, Config)
+            ?Pod:exec(Namespace, PodName, AgentContainerName, Command, Config)
     end.
 
 bridge_delete(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
     case bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) of
         {ok, Mac} ->
+            AgentContainerName = maps:get(agent_container_name, Config),
             Command = "bridge fdb delete " ++ Mac ++ " " ++
                       "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
-            ?Pod:exec(Namespace, PodName, ?AgentContainerName, Command, Config);
+            ?Pod:exec(Namespace, PodName, AgentContainerName, Command, Config);
         false -> ok
     end.
 
 bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
+    AgentContainerName = maps:get(agent_container_name, Config),
     Command = "bridge fdb show dev " ++ VxlanName,
-    Result = ?Pod:exec(Namespace, PodName, ?AgentContainerName, Command, Config),
+    Result = ?Pod:exec(Namespace, PodName, AgentContainerName, Command, Config),
     ?Utils:foldl_while(bridge_mac_fun(BridgeToIp), string:lexemes(Result, "\n")).
 
 bridge_mac_fun(BridgeToIp) -> fun(FdbItem) ->
@@ -58,8 +61,9 @@ bridge_mac_fun(BridgeToIp) -> fun(FdbItem) ->
 end.
 
 vxlan_id(Namespace, PodName, VxlanName, Config) ->
+    AgentContainerName = maps:get(agent_container_name, Config),
     Command = "ip -d link show " ++ VxlanName,
-    Result = ?Pod:exec(Namespace, PodName, ?AgentContainerName, Command, Config),
+    Result = ?Pod:exec(Namespace, PodName, AgentContainerName, Command, Config),
 
     case string:lexemes(hd(lists:reverse(string:lexemes(Result, "\n"))), " ") of
         ["vxlan", "id", Id|_] -> {ok, Id};
