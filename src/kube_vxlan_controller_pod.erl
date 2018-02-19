@@ -23,9 +23,8 @@
 ]).
 
 filter({vxlan_names, VxlanNames}, Pods) ->
-    [binary_to_list(Name) || #{
+    [Pod || Pod = #{
       metadata := #{
-        name := Name,
         annotations := Annotations
       }
     } <- Pods, lists_any_member(vxlan_names(Annotations), VxlanNames)].
@@ -53,12 +52,16 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
         lists:reverse(string:split(Command, " ", all))
     ),
 
-    {ok, Socket} = ?K8s:ws_connect(Resource, Query, Config),
-    {ok, Result} = ?K8s:ws_recv(Socket),
-    ?K8s:ws_disconnect(Socket),
-
-    ?Log:info(Result),
-    Result.
+    case ?K8s:ws_connect(Resource, Query, Config) of
+        {ok, Socket} ->
+            {ok, Result} = ?K8s:ws_recv(Socket),
+            ?K8s:ws_disconnect(Socket),
+            ?Log:info("~s", [Result]),
+            Result;
+        {error, Reason} ->
+            ?Log:error(Reason),
+            ""
+    end.
 
 vxlan_names(Annotations) ->
     VxlanNames = binary_to_list(maps:get(?A8nVxlanNames, Annotations, <<>>)),
