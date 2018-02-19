@@ -1,7 +1,8 @@
 -module(kube_vxlan_controller_utils).
 
 -export([
-    do_while/1
+    do_while/1,
+    foldl_while/2
 ]).
 
 do_while(FunSpecs) ->
@@ -24,3 +25,8 @@ do_while_arg({Id}, Results) when is_atom(Id) ->
     Result;
 
 do_while_arg(Arg, _Results) -> Arg.
+
+foldl_while(Fun, [H|T]) -> foldl_while(Fun(H), Fun, T);
+foldl_while(_Fun, []) -> false.
+foldl_while({ok, Value}, _Fun, _T) -> {ok, Value};
+foldl_while(false, Fun, T) -> foldl_while(Fun, T).
