@@ -16,7 +16,7 @@
 
 -define(JsonDecodeOptions, [return_maps, {labels, atom}]).
 
--define(HttpStreamRecvTimeout, 30 * 1000). % milliseconds
+-define(HttpStreamRecvTimeout, 60 * 1000). % milliseconds
 
 http_request(Resource, Query, Config) ->
     http_request(get, Resource, Query, [], <<>>, Config).
