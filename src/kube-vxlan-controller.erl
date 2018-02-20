@@ -24,12 +24,13 @@ config() -> #{
 }.
 
 run(Config, State) ->
-    ?Log:info("Resource version: ~s", [resource_version(State)]),
+    ?Log:info("Watching pods from version: ~s", [resource_version(State)]),
+
     Resource = "/api/v1/watch/pods",
     Query = [
         {"labelSelector", "vxlan=true"},
         {"resourceVersion", resource_version(State)},
-        {"timeoutSeconds", "30"}
+        {"timeoutSeconds", "10"}
     ],
     case ?K8s:http_stream_request(Resource, Query, Config) of
         {ok, Stream} -> run(Stream, Config, State);
@@ -50,18 +51,46 @@ process_events(Events, Config, State) ->
     lists:foldl(process_event_fun(Config), State, Events).
 
 process_event_fun(Config) -> fun(Event, State) ->
-    NormalizedEvent = normalize_event(Event),
-    NewState = set_resource_version(NormalizedEvent, State),
-    process_event(NormalizedEvent, Config, NewState)
+    {EventType, Resource} = read_event(Event),
+    NewState = set_resource_version(Resource, State),
+    ?Log:info("~s~n~p", [EventType, Resource]),
+    process_event(EventType, Resource, Config, NewState)
 end.
 
-process_event(Event, _Config, State) ->
-    ?Log:info(Event),
-    set_resource_version(Event, State).
+process_event(pod_added, Pod = #{phase := "Pending"}, _Config, State) ->
+    set_pod_pending(add, Pod, State);
 
-normalize_event(#{
+process_event(pod_added, Pod = #{phase := "Running"}, Config, State) ->
+    handle_pod_added(Pod, Config, State);
+
+process_event(pod_modified, #{phase := "Pending"}, _Config, State) ->
+    State;
+
+process_event(pod_modified, Pod = #{phase := "Running"}, Config, State) ->
+    case pod_pending_action(Pod, State) of
+        {ok, add} ->
+            NewState = unset_pod_pending(Pod, State),
+            handle_pod_added(Pod, Config, NewState);
+        {ok, modify} ->
+            State;
+        error ->
+            set_pod_pending(modify, Pod, State)
+    end;
+
+process_event(pod_deleted, Pod, Config, State) ->
+    case pod_pending_action(Pod, State) of
+        {ok, add} -> State;
+        {ok, modify} ->
+            NewPod = merge_pod_pending_info(Pod, State),
+            NewState = unset_pod_pending(NewPod, State),
+            handle_pod_deleted(NewPod, Config, NewState);
+        error -> State
+    end.
+
+read_event(#{
   type := Type,
     object := #{
+      kind := Kind,
       metadata := #{
         namespace := Namespace,
         uid := PodUid,
@@ -73,22 +102,54 @@ normalize_event(#{
         phase := Phase
       }
     }
-}) -> #{
-    event => list_to_atom(string:lowercase(binary_to_list(Type))),
-    resource_version => binary_to_list(ResourceVersion),
-    namespace => binary_to_list(Namespace),
-    pod_uid => binary_to_list(PodUid),
-    pod_name => binary_to_list(PodName),
-    pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-    vxlan_names => ?Pod:vxlan_names(Annotations),
-    phase => binary_to_list(Phase)
+}) -> {
+    list_to_atom(
+        string:lowercase(binary_to_list(Kind)) ++
+        [$_|string:lowercase(binary_to_list(Type))]
+    ),
+    #{resource_version => binary_to_list(ResourceVersion),
+      namespace => binary_to_list(Namespace),
+      pod_uid => binary_to_list(PodUid),
+      pod_name => binary_to_list(PodName),
+      pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
+      vxlan_names => ?Pod:vxlan_names(Annotations),
+      phase => binary_to_list(Phase)}
 }.
 
-handle_pod_added(Namespace, PodName, PodIp, VxlanNames, _Config) ->
-    ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]).
+handle_pod_added(#{
+    namespace := Namespace,
+    pod_name := PodName,
+    pod_ip := PodIp,
+    vxlan_names := VxlanNames
+}, _Config, State) ->
+    ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
+    State.
 
-handle_pod_deleted(Namespace, PodName, PodIp, VxlanNames, _Config) ->
-    ?Log:info("Pod deleted ~p:", [{Namespace, PodName, PodIp, VxlanNames}]).
+handle_pod_deleted(#{
+    namespace := Namespace,
+    pod_name := PodName,
+    pod_ip := PodIp,
+    vxlan_names := VxlanNames
+}, _Config, State) ->
+    ?Log:info("Pod deleted ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
+    State.
+
+merge_pod_pending_info(Pod = #{pod_uid := PodUid}, State) ->
+    #{pending_info := Info} = maps:get(PodUid, State),
+    maps:merge(Pod, Info).
+
+pod_pending_action(#{pod_uid := PodUid}, State) ->
+    case maps:find(PodUid, State) of
+        {ok, #{pending_action := Action}} -> {ok, Action};
+        error -> error
+    end.
+
+set_pod_pending(Action, #{pod_uid := PodUid, pod_ip := PodIp}, State) ->
+    maps:put(PodUid, #{pending_action => Action,
+                       pending_info => #{pod_ip => PodIp}}, State).
+
+unset_pod_pending(#{pod_uid := PodUid}, State) ->
+    maps:remove(PodUid, State).
 
 resource_version(State) ->
     maps:get(resource_version, State, "0").
