@@ -1,7 +1,7 @@
 -module(kube_vxlan_controller_pod).
 
 -export([
-    filter/2,
+    filter/3,
 
     list/1, list/2,
     exec/5,
@@ -22,12 +22,33 @@
     {"stderr", "true"}
 ]).
 
-filter({vxlan_names, VxlanNames}, Pods) ->
-    [Pod || Pod = #{
+filter(vxlan, VxlanNames, Pods) ->
+    lists:reverse(lists:foldl(filter_vxlan_fun(VxlanNames), [], Pods)).
+
+filter_vxlan_fun(VxlanNames) -> fun(Pod, Pods) ->
+    #{
       metadata := #{
+        name := Name,
         annotations := Annotations
+      },
+      status := #{
+        podIP := PodIp
       }
-    } <- Pods, lists_any_member(vxlan_names(Annotations), VxlanNames)].
+    } = Pod,
+    FilterPod = filter_vxlan_pod_fun(
+        binary_to_list(Name),
+        binary_to_list(PodIp),
+        VxlanNames
+    ),
+    lists:foldl(FilterPod, Pods, vxlan_names(Annotations))
+end.
+
+filter_vxlan_pod_fun(Name, PodIp, VxlanNames) -> fun(VxlanName, Pods) ->
+    case lists:member(VxlanName, VxlanNames) of
+        true -> [{Name, PodIp, VxlanName}|Pods];
+        false -> Pods
+    end
+end.
 
 list(Config) -> list(false, Config).
 
@@ -66,6 +87,3 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
 vxlan_names(Annotations) ->
     VxlanNames = binary_to_list(maps:get(?A8nVxlanNames, Annotations, <<>>)),
     string:lexemes(VxlanNames, ?A8nVxlanNamesSep).
-
-lists_any_member(L1, L2) ->
-    lists:any(fun(X) -> lists:member(X, L2) end, L1).
