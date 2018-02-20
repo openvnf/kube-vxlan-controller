@@ -22,33 +22,16 @@
     {"stderr", "true"}
 ]).
 
-filter(vxlan, VxlanNames, Pods) ->
-    lists:reverse(lists:foldl(filter_vxlan_fun(VxlanNames), [], Pods)).
-
-filter_vxlan_fun(VxlanNames) -> fun(Pod, Pods) ->
-    #{
-      metadata := #{
+filter(vxlan, VxlanName, Pods) ->
+    [{binary_to_list(Name), binary_to_list(PodIp)} ||
+     #{metadata := #{
         name := Name,
         annotations := Annotations
       },
       status := #{
         podIP := PodIp
       }
-    } = Pod,
-    FilterPod = filter_vxlan_pod_fun(
-        binary_to_list(Name),
-        binary_to_list(PodIp),
-        VxlanNames
-    ),
-    lists:foldl(FilterPod, Pods, vxlan_names(Annotations))
-end.
-
-filter_vxlan_pod_fun(Name, PodIp, VxlanNames) -> fun(VxlanName, Pods) ->
-    case lists:member(VxlanName, VxlanNames) of
-        true -> [{Name, PodIp, VxlanName}|Pods];
-        false -> Pods
-    end
-end.
+     } <- Pods, lists:member(VxlanName, vxlan_names(Annotations))].
 
 list(Config) -> list(false, Config).
 
