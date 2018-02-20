@@ -1,7 +1,7 @@
 -module(kube_vxlan_controller_pod).
 
 -export([
-    filter/3,
+    filter/4,
 
     list/1, list/2,
     exec/5,
@@ -22,7 +22,7 @@
     {"stderr", "true"}
 ]).
 
-filter(vxlan, VxlanName, Pods) ->
+filter(vxlan, VxlanName, PodName, Pods) ->
     [{binary_to_list(Name), binary_to_list(PodIp)} ||
      #{metadata := #{
         name := Name,
@@ -31,7 +31,10 @@ filter(vxlan, VxlanName, Pods) ->
       status := #{
         podIP := PodIp
       }
-     } <- Pods, lists:member(VxlanName, vxlan_names(Annotations))].
+     } <- Pods,
+     lists:member(VxlanName, vxlan_names(Annotations)) andalso
+     binary_to_list(Name) /= PodName
+    ].
 
 list(Config) -> list(false, Config).
 
