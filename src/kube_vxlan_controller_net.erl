@@ -1,6 +1,8 @@
 -module(kube_vxlan_controller_net).
 
 -export([
+    config/1,
+
     vxlan_add/5,
     vxlan_delete/4,
 
@@ -19,6 +21,13 @@
 -define(Pod, kube_vxlan_controller_pod).
 -define(Utils, kube_vxlan_controller_utils).
 -define(Log, kube_vxlan_controller_log).
+
+config(Config = #{namespace := Namespace, vxlan_config_name := Name}) ->
+    Resource = "/api/v1/namespaces/" ++ Namespace ++ "/configmaps/" ++ Name,
+    {ok, [#{data := Data}]} = ?K8s:http_request(Resource, [], Config),
+    maps:fold(fun(K, V, Map) ->
+        maps:put(atom_to_list(K), binary_to_list(V), Map)
+    end, #{}, Data).
 
 vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config) ->
     Command = "ip link add " ++ VxlanName ++ " " ++
