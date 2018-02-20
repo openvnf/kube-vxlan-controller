@@ -3,6 +3,7 @@
 -export([main/1, run/2, config/0]).
 
 -define(K8s, kube_vxlan_controller_k8s_client).
+-define(Net, kube_vxlan_controller_net).
 -define(Pod, kube_vxlan_controller_pod).
 -define(Log, kube_vxlan_controller_log).
 
@@ -56,8 +57,9 @@ process_events(Events, Config, State) ->
 
 process_event_fun(Config) -> fun(Event, State) ->
     {EventType, Resource} = read_event(Event),
-    NewState = set_resource_version(Resource, State),
     ?Log:info("~s~n~p", [EventType, Resource]),
+
+    NewState = set_resource_version(Resource, State),
     process_event(EventType, Resource, Config, NewState)
 end.
 
@@ -120,22 +122,40 @@ read_event(#{
       phase => binary_to_list(Phase)}
 }.
 
-handle_pod_added(#{
+handle_pod_added(Pod = #{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
     vxlan_names := VxlanNames
 }, _Config, State) ->
-    ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
+    ?Log:info("Pod added ~p:", [Pod]),
+
+    %VxlanIds = ?Net:vxlan_ids(Config),
+    %lists:foreach(fun(VxlanName) ->
+    %    case maps:find(VxlanName, VxlanIds) of
+    %        {ok, VxlanId} ->
+    %            vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config);
+    %        error ->
+    %            ?Log:error("Vxlan ID for \"~s\" not found", [VxlanName])
+    %    end
+    %end, VxlanNames),
+
+    %?Pod:filter({vxlan_names, VxlanNames}, ?Pod:list(Config)),
+    %?Net:bridge_append(Namespace, PodName, VxlanName, BridgeToIp, Config),
+
     State.
 
-handle_pod_deleted(#{
+handle_pod_deleted(Pod = #{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
     vxlan_names := VxlanNames
 }, _Config, State) ->
-    ?Log:info("Pod deleted ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
+    ?Log:info("Pod deleted ~p:", [Pod]),
+
+    %?Pod:filter({vxlan_names, VxlanNames}, ?Pod:list(Config)),
+    %bridge_delete(Namespace, PodName, VxlanName, BridgeToIp, Config), 
+
     State.
 
 merge_pod_pending_info(Pod = #{pod_uid := PodUid}, State) ->
