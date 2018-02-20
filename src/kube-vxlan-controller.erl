@@ -7,9 +7,11 @@
 -define(Log, kube_vxlan_controller_log).
 
 -define(Server, "https://api.k8s.nce-01.fra-01.eu.cennso.net").
+-define(NamespaceFile, "pki/namespace").
 -define(CaCertFile, "pki/ca.pem").
 -define(TokenFile, "pki/token").
 
+-define(VxlanConfigName, "kube-vxlan-controller").
 -define(AgentContainerName, "vxlan-controller-agent").
 
 main(_) ->
@@ -18,8 +20,10 @@ main(_) ->
 
 config() -> #{
     server => ?Server,
-    token => binary_to_list(element(2, file:read_file(?TokenFile))),
+    namespace => binary_to_list(element(2, file:read_file(?NamespaceFile))),
     ca_cert_file => ?CaCertFile,
+    token => binary_to_list(element(2, file:read_file(?TokenFile))),
+    vxlan_config_name => ?VxlanConfigName,
     agent_container_name => ?AgentContainerName
 }.
 
