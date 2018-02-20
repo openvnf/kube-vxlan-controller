@@ -122,41 +122,62 @@ read_event(#{
       phase => binary_to_list(Phase)}
 }.
 
-handle_pod_added(Pod = #{
+handle_pod_added(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
     vxlan_names := VxlanNames
-}, _Config, State) ->
-    ?Log:info("Pod added ~p:", [Pod]),
+}, Config, State) ->
+    ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
 
-    %VxlanIds = ?Net:vxlan_ids(Config),
-    %lists:foreach(fun(VxlanName) ->
-    %    case maps:find(VxlanName, VxlanIds) of
-    %        {ok, VxlanId} ->
-    %            vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config);
-    %        error ->
-    %            ?Log:error("Vxlan ID for \"~s\" not found", [VxlanName])
-    %    end
-    %end, VxlanNames),
+    VxlanIds = ?Net:vxlan_ids(Config),
+    Pods = ?Pod:list(Config),
 
-    %?Pod:filter({vxlan_names, VxlanNames}, ?Pod:list(Config)),
-    %?Net:bridge_append(Namespace, PodName, VxlanName, BridgeToIp, Config),
+    lists:foreach(fun(VxlanName) ->
+        case maps:find(VxlanName, VxlanIds) of
+            {ok, VxlanId} -> add_pod_to_vxlan(
+                Namespace, PodName, PodIp,
+                VxlanName, VxlanId, Pods, Config
+            );
+            error ->
+                ?Log:error("Vxlan Id for \"~s\" not found", [VxlanName])
+        end
+    end, VxlanNames),
 
     State.
 
-handle_pod_deleted(Pod = #{
+handle_pod_deleted(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
     vxlan_names := VxlanNames
-}, _Config, State) ->
-    ?Log:info("Pod deleted ~p:", [Pod]),
+}, Config, State) ->
+    ?Log:info("Pod deleted ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
 
-    %?Pod:filter({vxlan_names, VxlanNames}, ?Pod:list(Config)),
-    %bridge_delete(Namespace, PodName, VxlanName, BridgeToIp, Config), 
+    Pods = ?Pod:list(Config),
+
+    lists:foreach(fun(VxlanName) ->
+        delete_pod_from_vxlan(Namespace, PodName, PodIp, VxlanName, Pods, Config)
+    end, VxlanNames),
 
     State.
+
+add_pod_to_vxlan(Namespace, PodName, PodIp, VxlanName, VxlanId, Pods, Config) ->
+    ?Net:vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config),
+    VxlanPods = ?Pod:filter(vxlan, VxlanName, Pods),
+    lists:foreach(fun({VxlanPodName, VxlanPodIp}) ->
+        ?Net:bridge_append(Namespace, VxlanPodName, VxlanName, PodIp, Config),
+        ?Net:bridge_append(Namespace, PodName, VxlanName, VxlanPodIp, Config),
+        ?Net:vxlan_restart(Namespace, VxlanPodName, VxlanName, Config)
+    end, VxlanPods),
+    ?Net:vxlan_restart(Namespace, PodName, VxlanName, Config).
+
+delete_pod_from_vxlan(Namespace, _PodName, PodIp, VxlanName, Pods, Config) ->
+    VxlanPods = ?Pod:filter(vxlan, VxlanName, Pods),
+    lists:foreach(fun({VxlanPodName, _VxlanPodIp}) ->
+        ?Net:bridge_delete(Namespace, VxlanPodName, VxlanName, PodIp, Config),
+        ?Net:vxlan_restart(Namespace, VxlanPodName, VxlanName, Config)
+    end, VxlanPods).
 
 merge_pod_pending_info(Pod = #{pod_uid := PodUid}, State) ->
     #{pending_info := Info} = maps:get(PodUid, State),
