@@ -164,19 +164,17 @@ handle_pod_deleted(#{
 
 add_pod_to_vxlan(Namespace, PodName, PodIp, VxlanName, VxlanId, Pods, Config) ->
     ?Net:vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config),
-    VxlanPods = ?Pod:filter(vxlan, VxlanName, Pods),
+    ?Net:vxlan_up(Namespace, PodName, VxlanName, Config),
+    VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
     lists:foreach(fun({VxlanPodName, VxlanPodIp}) ->
         ?Net:bridge_append(Namespace, VxlanPodName, VxlanName, PodIp, Config),
-        ?Net:bridge_append(Namespace, PodName, VxlanName, VxlanPodIp, Config),
-        ?Net:vxlan_restart(Namespace, VxlanPodName, VxlanName, Config)
-    end, VxlanPods),
-    ?Net:vxlan_restart(Namespace, PodName, VxlanName, Config).
+        ?Net:bridge_append(Namespace, PodName, VxlanName, VxlanPodIp, Config)
+    end, VxlanPods).
 
-delete_pod_from_vxlan(Namespace, _PodName, PodIp, VxlanName, Pods, Config) ->
-    VxlanPods = ?Pod:filter(vxlan, VxlanName, Pods),
+delete_pod_from_vxlan(Namespace, PodName, PodIp, VxlanName, Pods, Config) ->
+    VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
     lists:foreach(fun({VxlanPodName, _VxlanPodIp}) ->
-        ?Net:bridge_delete(Namespace, VxlanPodName, VxlanName, PodIp, Config),
-        ?Net:vxlan_restart(Namespace, VxlanPodName, VxlanName, Config)
+        ?Net:bridge_delete(Namespace, VxlanPodName, VxlanName, PodIp, Config)
     end, VxlanPods).
 
 merge_pod_pending_info(Pod = #{pod_uid := PodUid}, State) ->
