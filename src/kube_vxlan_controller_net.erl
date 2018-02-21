@@ -31,28 +31,28 @@ vxlan_delete(Namespace, PodName, VxlanName, Config) ->
     Command = "ip link delete " ++ VxlanName,
     pod_exec(Namespace, PodName, Command, Config).
 
-bridge_append(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
+bridge_append(Namespace, PodName, VxlanName, TargetIp, Config) ->
     BridgeExists =
-        bridge_macs(Namespace, PodName, VxlanName, BridgeToIp, Config) /= [],
+        bridge_macs(Namespace, PodName, VxlanName, TargetIp, Config) /= [],
     BridgeExists orelse begin
         Command = "bridge fdb append to 00:00:00:00:00:00 " ++
-                  "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
+                  "dst " ++ TargetIp ++ " dev " ++ VxlanName,
         pod_exec(Namespace, PodName, Command, Config)
     end.
 
-bridge_delete(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
+bridge_delete(Namespace, PodName, VxlanName, TargetIp, Config) ->
     lists:foreach(fun(Mac) ->
         Command = "bridge fdb delete " ++ Mac ++ " " ++
-                  "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
+                  "dst " ++ TargetIp ++ " dev " ++ VxlanName,
         pod_exec(Namespace, PodName, Command, Config)
-    end, bridge_macs(Namespace, PodName, VxlanName, BridgeToIp, Config)).
+    end, bridge_macs(Namespace, PodName, VxlanName, TargetIp, Config)).
 
-bridge_macs(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
+bridge_macs(Namespace, PodName, VxlanName, TargetIp, Config) ->
     Command = "bridge fdb show dev " ++ VxlanName,
     Result = pod_exec(Namespace, PodName, Command, Config),
     [Mac || FdbRecord <- string:lexemes(Result, "\n"),
             [Mac, "dst", Ip|_ ] <- [string:lexemes(FdbRecord, " ")],
-            Ip == BridgeToIp].
+            Ip == TargetIp].
 
 vxlan_ids(Config = #{namespace := Namespace, vxlan_config_name := Name}) ->
     Resource = "/api/v1/namespaces/" ++ Namespace ++ "/configmaps/" ++ Name,
