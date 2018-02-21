@@ -18,10 +18,10 @@
 
 -define(MandatoryConfigParams, [
     server,
-    namespace_file,
+    namespace,
     ca_cert_file,
-    token_file,
-    config_name,
+    token,
+    vxlan_config_name,
     agent_container_name
 ]).
 
