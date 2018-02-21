@@ -3,6 +3,7 @@
 -export([main/1, run/2, config/0]).
 
 -define(K8s, kube_vxlan_controller_k8s_client).
+-define(Cli, kube_vxlan_controller_cli).
 -define(Net, kube_vxlan_controller_net).
 -define(Pod, kube_vxlan_controller_pod).
 -define(Log, kube_vxlan_controller_log).
@@ -15,9 +16,24 @@
 -define(VxlanConfigName, "kube-vxlan-controller").
 -define(AgentContainerName, "vxlan-controller-agent").
 
-main(_) ->
+-define(MandatoryConfigParams, [
+    server,
+    namespace_file,
+    ca_cert_file,
+    token_file,
+    config_name,
+    agent_container_name
+]).
+
+main(Args) ->
     application:ensure_all_started(?MODULE),
-    run(config(), #{}).
+    Config = ?Cli:read_args(Args),
+    case maps:size(maps:with(?MandatoryConfigParams, Config)) ==
+         length(?MandatoryConfigParams)
+    of
+        true -> run(?Cli:read_args(Args), #{});
+        false -> io:format(?Cli:usage())
+    end.
 
 config() -> #{
     server => ?Server,
