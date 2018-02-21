@@ -13,6 +13,14 @@ BIN_PATH_IN = $(shell $(REBAR) path --bin)
 BUILD_DIR = _build
 BUILD_DIR_IMAGE = $(BUILD_DIR)/image
 
+CONFIG = \
+	--server=https://api.k8s.nce-01.fra-01.eu.cennso.net \
+	--namespace-file=pki/namespace \
+	--ca-cert-file=pki/ca.pem \
+	--token-file=pki/token \
+	--vxlan-config-name=kube-vxlan-controller \
+	--agent-container-name=vxlan-controller-agent
+
 all:
 	$(REBAR) compile
 	$(REBAR) unlock
@@ -48,12 +56,12 @@ docker-push:
 	docker push $(USER)/$(PROJECT):$(VERSION)
 
 docker-run:
-	docker run --name $(PROJECT) --rm -it \
-		$(USER)/$(PROJECT):$(VERSION) $(PROJECT)
+	docker run --name $(PROJECT) --rm -it -v ${PWD}/pki:/pki \
+		$(USER)/$(PROJECT):$(VERSION) $(PROJECT) $(CONFIG)
 
 docker-start:
-	docker run --name $(PROJECT) --rm -itd \
-		$(USER)/$(PROJECT):$(VERSION) $(PROJECT)
+	docker run --name $(PROJECT) --rm -itd -v ${PWD}/pki:/pki \
+		$(USER)/$(PROJECT):$(VERSION) $(PROJECT) $(CONFIG)
 
 docker-stop:
 	docker stop $(PROJECT) -t0
