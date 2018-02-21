@@ -135,10 +135,12 @@ handle_pod_added(#{
 
     lists:foreach(fun(VxlanName) ->
         case maps:find(VxlanName, VxlanIds) of
-            {ok, VxlanId} -> add_pod_to_vxlan(
-                Namespace, PodName, PodIp,
-                VxlanName, VxlanId, Pods, Config
-            );
+            {ok, VxlanId} ->
+                VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
+                ?Net:vxlan_add_pod(
+                    Namespace, PodName, PodIp,
+                    VxlanName, VxlanId, VxlanPods, Config
+                );
             error ->
                 ?Log:error("Vxlan Id for \"~s\" not found", [VxlanName])
         end
@@ -157,25 +159,13 @@ handle_pod_deleted(#{
     Pods = ?Pod:list(Config),
 
     lists:foreach(fun(VxlanName) ->
-        delete_pod_from_vxlan(Namespace, PodName, PodIp, VxlanName, Pods, Config)
+        VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
+        ?Net:vxlan_delete_pod(
+            Namespace, PodName, PodName, VxlanName, VxlanPods, Config
+        )
     end, VxlanNames),
 
     State.
-
-add_pod_to_vxlan(Namespace, PodName, PodIp, VxlanName, VxlanId, Pods, Config) ->
-    ?Net:vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config),
-    ?Net:vxlan_up(Namespace, PodName, VxlanName, Config),
-    VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
-    lists:foreach(fun({VxlanPodName, VxlanPodIp}) ->
-        ?Net:bridge_append(Namespace, VxlanPodName, VxlanName, PodIp, Config),
-        ?Net:bridge_append(Namespace, PodName, VxlanName, VxlanPodIp, Config)
-    end, VxlanPods).
-
-delete_pod_from_vxlan(Namespace, PodName, PodIp, VxlanName, Pods, Config) ->
-    VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
-    lists:foreach(fun({VxlanPodName, _VxlanPodIp}) ->
-        ?Net:bridge_delete(Namespace, VxlanPodName, VxlanName, PodIp, Config)
-    end, VxlanPods).
 
 merge_pod_pending_info(Pod = #{pod_uid := PodUid}, State) ->
     #{pending_info := Info} = maps:get(PodUid, State),
