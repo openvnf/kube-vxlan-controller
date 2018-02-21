@@ -7,7 +7,7 @@
     bridge_append/5,
     bridge_delete/5,
 
-    bridge_mac/5,
+    bridge_macs/5,
 
     vxlan_ids/1,
     vxlan_id/4,
@@ -32,34 +32,27 @@ vxlan_delete(Namespace, PodName, VxlanName, Config) ->
     pod_exec(Namespace, PodName, Command, Config).
 
 bridge_append(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
-    case bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) of
-        {ok, _Mac} -> ok;
-        false ->
-            Command = "bridge fdb append to 00:00:00:00:00:00 " ++
-                      "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
-            pod_exec(Namespace, PodName, Command, Config)
+    BridgeExists =
+        bridge_macs(Namespace, PodName, VxlanName, BridgeToIp, Config) /= [],
+    BridgeExists orelse begin
+        Command = "bridge fdb append to 00:00:00:00:00:00 " ++
+                  "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
+        pod_exec(Namespace, PodName, Command, Config)
     end.
 
 bridge_delete(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
-    case bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) of
-        {ok, Mac} ->
-            Command = "bridge fdb delete " ++ Mac ++ " " ++
-                      "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
-            pod_exec(Namespace, PodName, Command, Config);
-        false -> ok
-    end.
+    lists:foreach(fun(Mac) ->
+        Command = "bridge fdb delete " ++ Mac ++ " " ++
+                  "dst " ++ BridgeToIp ++ " dev " ++ VxlanName,
+        pod_exec(Namespace, PodName, Command, Config)
+    end, bridge_macs(Namespace, PodName, VxlanName, BridgeToIp, Config)).
 
-bridge_mac(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
+bridge_macs(Namespace, PodName, VxlanName, BridgeToIp, Config) ->
     Command = "bridge fdb show dev " ++ VxlanName,
     Result = pod_exec(Namespace, PodName, Command, Config),
-    ?Utils:foldl_while(bridge_mac_fun(BridgeToIp), string:lexemes(Result, "\n")).
-
-bridge_mac_fun(BridgeToIp) -> fun(FdbItem) ->
-    case string:lexemes(FdbItem, " ") of
-        [Mac, "dst", BridgeToIp|_] -> {ok, Mac};
-        _Other -> false
-    end
-end.
+    [Mac || FdbRecord <- string:lexemes(Result, "\n"),
+            [Mac, "dst", Ip|_ ] <- [string:lexemes(FdbRecord, " ")],
+            Ip == BridgeToIp].
 
 vxlan_ids(Config = #{namespace := Namespace, vxlan_config_name := Name}) ->
     Resource = "/api/v1/namespaces/" ++ Namespace ++ "/configmaps/" ++ Name,
