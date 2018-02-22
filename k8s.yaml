@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-vxlan-controller
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-vxlan-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: kube-vxlan-controller
+    namespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-vxlan-controller
+  namespace: kube-system
+data:
+  lan1: "101"
+  lan2: "102"
+  lan3: "103"
+  lan4: "104"
+  lan5: "105"
+  lan6: "106"
+  lan7: "107"
+  lan8: "108"
+  lan9: "109"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: kube-vxlan-controller
+  name: kube-vxlan-controller
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        run: kube-vxlan-controller
+    spec:
+      containers:
+      - name: kube-vxlan-controller
+        image: aialferov/kube-vxlan-controller:0.1.0
+        args:
+        - kube-vxlan-controller
+        - --server=https://kubernetes.default
+        - --namespace-file=/var/run/secrets/kubernetes.io/serviceaccount/namespace
+        - --ca-cert-file=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - --token-file=/var/run/secrets/kubernetes.io/serviceaccount/token
+        - --vxlan-config-name=kube-vxlan-controller
+        - --agent-container-name=vxlan-controller-agent
+      serviceAccount: kube-vxlan-controller
+      serviceAccountName: kube-vxlan-controller
