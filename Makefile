@@ -30,7 +30,7 @@ shell:
 	$(REBAR) unlock
 
 run:
-	$(BIN_PATH_IN)/$(PROJECT)
+	$(BIN_PATH_IN)/$(PROJECT) $(CONFIG)
 
 install:
 	mkdir -p $(BIN_PATH)
