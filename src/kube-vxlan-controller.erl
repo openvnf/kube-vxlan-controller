@@ -177,7 +177,7 @@ handle_pod_deleted(#{
     lists:foreach(fun(VxlanName) ->
         VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
         ?Net:vxlan_delete_pod(
-            Namespace, PodName, PodName, VxlanName, VxlanPods, Config
+            Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
     end, VxlanNames),
 
