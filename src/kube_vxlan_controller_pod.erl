@@ -29,7 +29,8 @@ filter(vxlan, VxlanName, PodName, Pods) ->
         annotations := Annotations
       },
       status := #{
-        podIP := PodIp
+        podIP := PodIp,
+        phase := <<"Running">>
       }
      } <- Pods,
      lists:member(VxlanName, vxlan_names(Annotations)) andalso
