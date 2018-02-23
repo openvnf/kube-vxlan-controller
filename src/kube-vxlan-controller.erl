@@ -207,7 +207,7 @@ set_resource_version(#{resource_version := Value}, State) ->
     OldValue = list_to_integer(resource_version(State)),
     ProposedValue = list_to_integer(Value),
 
-    case ProposedValue > OldValue of
+    case ProposedValue >= OldValue of
         true ->
             NewValue = integer_to_list(ProposedValue + 1),
             maps:put(resource_version, NewValue, State);
