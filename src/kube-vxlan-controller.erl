@@ -45,16 +45,21 @@ config() -> #{
 }.
 
 run(Config, State) ->
-    ?Log:info("Watching pods from version: ~s", [resource_version(State)]),
+    NewState = case resource_version_shown(State) of
+        true -> State;
+        false ->
+            ?Log:info("Watching pods from version: ~s", [resource_version(State)]),
+            set_resource_version_shown(State)
+    end,
 
     Resource = "/api/v1/watch/pods",
     Query = [
         {"labelSelector", "vxlan=true"},
-        {"resourceVersion", resource_version(State)},
+        {"resourceVersion", resource_version(NewState)},
         {"timeoutSeconds", "10"}
     ],
     case ?K8s:http_stream_request(Resource, Query, Config) of
-        {ok, Stream} -> run(Stream, Config, State);
+        {ok, Stream} -> run(Stream, Config, NewState);
         {error, Reason} -> ?Log:error(Reason)
     end.
 
@@ -210,6 +215,16 @@ set_resource_version(#{resource_version := Value}, State) ->
     case ProposedValue >= OldValue of
         true ->
             NewValue = integer_to_list(ProposedValue + 1),
-            maps:put(resource_version, NewValue, State);
+            maps:put(resource_version, NewValue,
+                     set_resource_version_unshown(State));
         false -> State
     end.
+
+resource_version_shown(State) ->
+    maps:get(resource_version_shown, State, false).
+
+set_resource_version_shown(State) ->
+    maps:put(resource_version_shown, true, State).
+
+set_resource_version_unshown(State) ->
+    maps:put(resource_version_shown, false, State).
