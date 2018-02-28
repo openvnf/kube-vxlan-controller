@@ -27,13 +27,13 @@
 
 main(Args) ->
     application:ensure_all_started(?MODULE),
-    Config = ?Cli:read_args(Args),
-    case maps:size(maps:with(?MandatoryConfigParams, Config)) ==
-         length(?MandatoryConfigParams)
-    of
-        true -> run(?Cli:read_args(Args), #{});
-        false -> io:format(?Cli:usage())
+    case ?Cli:read_args(Args) of
+        {ok, {run, Config}} -> run(Config);
+        {ok, {version, Version}} -> show_version(Version)
     end.
+
+show_version(Version) -> io:format(?Cli:version(Version)).
+show_usage() -> io:format(?Cli:usage()).
 
 config() -> #{
     server => ?Server,
@@ -43,6 +43,16 @@ config() -> #{
     vxlan_config_name => ?VxlanConfigName,
     agent_container_name => ?AgentContainerName
 }.
+
+is_config_valid(Config) ->
+    maps:size(maps:with(?MandatoryConfigParams, Config)) ==
+    length(?MandatoryConfigParams).
+
+run(Config) ->
+    case is_config_valid(Config) of
+        true -> run(Config, #{});
+        false -> show_usage()
+    end.
 
 run(Config, State) ->
     NewState = case resource_version_shown(State) of

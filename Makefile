@@ -1,6 +1,6 @@
 USER = aialferov
 PROJECT = kube-vxlan-controller
-VERSION = latest
+VERSION = $(shell $(MAKE) version)
 
 REBAR = ./rebar3
 
@@ -31,6 +31,9 @@ shell:
 
 run:
 	$(BIN_PATH_IN)/$(PROJECT) $(CONFIG)
+
+version:
+	@$(BIN_PATH_IN)/$(PROJECT) version | cut -d" " -f2
 
 install:
 	mkdir -p $(BIN_PATH)

@@ -2,8 +2,11 @@
 
 -export([
     usage/0,
+    version/1,
     read_args/1
 ]).
+
+-define(App, 'kube-vxlan-controller').
 
 -define(Usage,
     "Usage: kube-vxlan-controller~n"
@@ -15,10 +18,20 @@
     "           --agent-container-name=<name>~n"
 ).
 
+-define(Version, "Version ~s (git-~s)~n").
+
 usage() -> ?Usage.
 
+version({Vsn, GitSha}) ->
+    lists:flatten(io_lib:format(?Version, [Vsn, GitSha])).
+
+read_args(["version"]) ->
+    {ok, Vsn} = application:get_key(?App, vsn),
+    {ok, GitSha} = application:get_env(?App, git_sha),
+    {ok, {version, {Vsn, GitSha}}};
+
 read_args(Args) ->
-    lists:foldl(fun read_arg/2, #{}, Args).
+    {ok, {run, lists:foldl(fun read_arg/2, #{}, Args)}}.
 
 read_arg("--" ++ Arg, Config) ->
     case string:lexemes(Arg, "=") of

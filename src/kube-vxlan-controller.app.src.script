@@ -1,0 +1,10 @@
+case os:cmd("git rev-parse HEAD") of
+    GitSha ->
+        GitShaShort = string:slice(GitSha, 0, 8),
+
+        {application, Name, Config} = lists:keyfind(application, 1, CONFIG),
+        Env = {env, [{git_sha, GitShaShort}]},
+
+        NewConfig = lists:keystore(env, 1, Config, Env),
+        lists:keystore(application, 1, CONFIG, {application, Name, NewConfig})
+end.
