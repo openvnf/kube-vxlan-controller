@@ -23,15 +23,10 @@ metadata:
   name: kube-vxlan-controller
   namespace: kube-system
 data:
-  lan1: "101"
-  lan2: "102"
-  lan3: "103"
-  lan4: "104"
-  lan5: "105"
-  lan6: "106"
-  lan7: "107"
-  lan8: "108"
-  lan9: "109"
+  vxeth0: "100"
+  vxeth1: "101"
+  vxeth2: "102"
+  vxeth3: "103"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
