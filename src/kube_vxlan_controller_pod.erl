@@ -12,7 +12,7 @@
 -define(K8s, kube_vxlan_controller_k8s_client).
 -define(Log, kube_vxlan_controller_log).
 
--define(LabelSelector, "vxlan=true").
+-define(LabelSelector, "vxlan.travelping.com=true").
 
 -define(A8nVxlanNames, 'vxlan.travelping.com/names').
 -define(A8nVxlanNamesSep, ", \n").

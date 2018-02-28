@@ -54,7 +54,7 @@ run(Config, State) ->
 
     Resource = "/api/v1/watch/pods",
     Query = [
-        {"labelSelector", "vxlan=true"},
+        {"labelSelector", "vxlan.travelping.com=true"},
         {"resourceVersion", resource_version(NewState)},
         {"timeoutSeconds", "10"}
     ],

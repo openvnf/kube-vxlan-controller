@@ -24,7 +24,7 @@ $ kubectl apply -f k8s.yaml
 
 To make a pod VXLAN enabled it should answer the following conditions:
 
-1. Have a `vxlan: "true"` label;
+1. Have a `vxlan.travelping.com: "true"` label;
 2. Have a `vxlan.travelping.com/names: <VXLAN name list>` annotation;
 3. Run a Kube VXLAN Controller Agent sidecar container with the security context
 "NET_ADMIN" capability.
@@ -36,7 +36,7 @@ spec:
   template:
     metadata:
       labels:
-        vxlan: "true"
+        vxlan.travelping.com: "true"
       annotations:
         vxlan.travelping.com/names: vxeth0, vxeth1
     spec:
