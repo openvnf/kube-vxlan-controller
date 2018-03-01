@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
       - name: kube-vxlan-controller
-        image: aialferov/kube-vxlan-controller:0.1.4
+        image: aialferov/kube-vxlan-controller:latest
         args:
         - kube-vxlan-controller
         - --server=https://kubernetes.default
