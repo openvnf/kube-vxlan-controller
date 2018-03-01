@@ -94,11 +94,21 @@ process_event_fun(Config) -> fun(Event, State) ->
     process_event(EventType, Resource, Config, NewState)
 end.
 
-process_event(pod_added, Pod = #{phase := "Pending"}, _Config, State) ->
-    set_pod_pending(add, Pod, State);
+process_event(pod_added, Pod = #{phase := "Pending"}, Config, State) ->
+    NewState = set_pod_pending(add, Pod, State),
+    case maps:get(init_agent_ready, Pod) of
+        true -> handle_pod_initialisation(Pod, Config, NewState);
+        false -> NewState
+    end;
 
 process_event(pod_added, Pod = #{phase := "Running"}, Config, State) ->
     handle_pod_added(Pod, Config, State);
+
+process_event(pod_modified, Pod = #{phase := "Pending"}, Config, State) ->
+    case maps:get(init_agent_ready, Pod) of
+        true -> handle_pod_initialisation(Pod, Config, State);
+        false -> State
+    end;
 
 process_event(pod_modified, Pod = #{phase := "Running"}, Config, State) ->
     case pod_pending_action(Pod, State) of
@@ -149,8 +159,45 @@ read_event(#{
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
       vxlan_names => ?Pod:vxlan_names(Annotations),
-      phase => binary_to_list(Phase)}
+      phase => binary_to_list(Phase),
+      init_agent_ready => lists:any(
+          fun is_init_agent_ready/1,
+          maps:get(initContainerStatuses, Status, [])
+      )
+    }
 }.
+
+is_init_agent_ready(#{name := Name, state := State}) ->
+    Name == <<"vxlan-controller-agent-init">> andalso
+    maps:is_key(running, State).
+
+handle_pod_initialisation(#{
+    namespace := Namespace,
+    pod_name := PodName,
+    vxlan_names := VxlanNames
+}, Config, State) ->
+    ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, VxlanNames}]),
+
+    VxlanIds = ?Net:vxlan_ids(Config),
+
+    lists:foreach(fun(VxlanName) ->
+        case maps:find(VxlanName, VxlanIds) of
+            {ok, VxlanId} ->
+                ?Net:vxlan_init_pod(
+                    Namespace, PodName, VxlanName, VxlanId,
+                    maps:put(agent_container_name,
+                             "vxlan-controller-agent-init", Config)
+                ),
+                ?Pod:exec(
+                    Namespace, PodName, "vxlan-controller-agent-init",
+                    "touch /run/terminate", Config
+                );
+            error ->
+                ?Log:error("Vxlan Id for \"~s\" not found", [VxlanName])
+        end
+    end, VxlanNames),
+
+    State.
 
 handle_pod_added(#{
     namespace := Namespace,
@@ -160,20 +207,14 @@ handle_pod_added(#{
 }, Config, State) ->
     ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
 
-    VxlanIds = ?Net:vxlan_ids(Config),
     Pods = ?Pod:list(Config),
 
     lists:foreach(fun(VxlanName) ->
-        case maps:find(VxlanName, VxlanIds) of
-            {ok, VxlanId} ->
-                VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
-                ?Net:vxlan_add_pod(
-                    Namespace, PodName, PodIp,
-                    VxlanName, VxlanId, VxlanPods, Config
-                );
-            error ->
-                ?Log:error("Vxlan Id for \"~s\" not found", [VxlanName])
-        end
+        VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
+        ?Net:vxlan_add_pod(
+            Namespace, PodName, PodIp,
+            VxlanName, VxlanPods, Config
+        )
     end, VxlanNames),
 
     State.

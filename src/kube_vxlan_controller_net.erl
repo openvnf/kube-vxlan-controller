@@ -1,7 +1,8 @@
 -module(kube_vxlan_controller_net).
 
 -export([
-    vxlan_add_pod/7,
+    vxlan_init_pod/5,
+    vxlan_add_pod/6,
     vxlan_delete_pod/6,
 
     vxlan_add/5,
@@ -25,12 +26,11 @@
 -define(Utils, kube_vxlan_controller_utils).
 -define(Log, kube_vxlan_controller_log).
 
-vxlan_add_pod(
-    Namespace, PodName, PodIp,
-    VxlanName, VxlanId, VxlanPods, Config
-) ->
+vxlan_init_pod(Namespace, PodName, VxlanName, VxlanId, Config) ->
     vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config),
-    vxlan_up(Namespace, PodName, VxlanName, Config),
+    vxlan_up(Namespace, PodName, VxlanName, Config).
+
+vxlan_add_pod(Namespace, PodName, PodIp, VxlanName, VxlanPods, Config) ->
     lists:foreach(fun({VxlanPodName, VxlanPodIp}) ->
         bridge_append(Namespace, VxlanPodName, VxlanName, PodIp, Config),
         bridge_append(Namespace, PodName, VxlanName, VxlanPodIp, Config)
