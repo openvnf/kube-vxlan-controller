@@ -1,7 +1,7 @@
 {application, 'kube-vxlan-controller', [
     {description, "Kubernetes VXLAN contoller"},
     {id, "kube-vxlan-controller"},
-    {vsn, "0.1.5"},
+    {vsn, "0.1.6"},
     {modules, []},
     {applications, [kernel, stdlib, hackney]}
 ]}.
