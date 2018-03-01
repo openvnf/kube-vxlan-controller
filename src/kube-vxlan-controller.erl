@@ -100,9 +100,6 @@ process_event(pod_added, Pod = #{phase := "Pending"}, _Config, State) ->
 process_event(pod_added, Pod = #{phase := "Running"}, Config, State) ->
     handle_pod_added(Pod, Config, State);
 
-process_event(pod_modified, #{phase := "Pending"}, _Config, State) ->
-    State;
-
 process_event(pod_modified, Pod = #{phase := "Running"}, Config, State) ->
     case pod_pending_action(Pod, State) of
         {ok, add} ->
@@ -122,7 +119,9 @@ process_event(pod_deleted, Pod, Config, State) ->
             NewState = unset_pod_pending(NewPod, State),
             handle_pod_deleted(NewPod, Config, NewState);
         error -> State
-    end.
+    end;
+
+process_event(_Event, _Pod, _Config, State) -> State.
 
 read_event(#{
   type := Type,
