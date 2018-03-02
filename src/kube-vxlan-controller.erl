@@ -187,15 +187,16 @@ handle_pod_initialisation(#{
                     Namespace, PodName, VxlanName, VxlanId,
                     maps:put(agent_container_name,
                              "vxlan-controller-agent-init", Config)
-                ),
-                ?Pod:exec(
-                    Namespace, PodName, "vxlan-controller-agent-init",
-                    "touch /run/terminate", Config
                 );
             error ->
                 ?Log:error("Vxlan Id for \"~s\" not found", [VxlanName])
         end
     end, VxlanNames),
+
+    ?Pod:exec(
+        Namespace, PodName, "vxlan-controller-agent-init",
+        "touch /run/terminate", Config
+    ),
 
     State.
 
