@@ -17,14 +17,13 @@
     vxlan_id/4,
 
     vxlan_up/4,
-    vxlan_down/4,
-    vxlan_restart/4
+    vxlan_down/4
 ]).
 
 -define(K8s, kube_vxlan_controller_k8s).
 -define(Pod, kube_vxlan_controller_pod).
--define(Utils, kube_vxlan_controller_utils).
 -define(Log, kube_vxlan_controller_log).
+-define(Utils, kube_vxlan_controller_utils).
 
 vxlan_init_pod(Namespace, PodName, VxlanName, VxlanId, Config) ->
     vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config),
@@ -97,10 +96,6 @@ vxlan_up(Namespace, PodName, VxlanName, Config) ->
 vxlan_down(Namespace, PodName, VxlanName, Config) ->
     Command = "ip link set " ++ VxlanName ++ " down",
     pod_exec(Namespace, PodName, Command, Config).
-
-vxlan_restart(Namespace, PodName, VxlanName, Config) ->
-    vxlan_down(Namespace, PodName, VxlanName, Config),
-    vxlan_up(Namespace, PodName, VxlanName, Config).
 
 pod_exec(Namespace, PodName, Command, Config) ->
     AgentContainerName = maps:get(agent_container_name, Config),
