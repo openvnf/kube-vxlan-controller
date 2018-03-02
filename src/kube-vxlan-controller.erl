@@ -2,7 +2,7 @@
 
 -export([main/1, run/2, config/0]).
 
--define(K8s, kube_vxlan_controller_k8s_client).
+-define(K8s, kube_vxlan_controller_k8s).
 -define(Cli, kube_vxlan_controller_cli).
 -define(Net, kube_vxlan_controller_net).
 -define(Pod, kube_vxlan_controller_pod).

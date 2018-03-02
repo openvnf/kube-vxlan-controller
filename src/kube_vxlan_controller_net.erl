@@ -21,7 +21,7 @@
     vxlan_restart/4
 ]).
 
--define(K8s, kube_vxlan_controller_k8s_client).
+-define(K8s, kube_vxlan_controller_k8s).
 -define(Pod, kube_vxlan_controller_pod).
 -define(Utils, kube_vxlan_controller_utils).
 -define(Log, kube_vxlan_controller_log).

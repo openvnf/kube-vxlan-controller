@@ -1,4 +1,4 @@
--module(kube_vxlan_controller_k8s_client).
+-module(kube_vxlan_controller_k8s).
 
 -export([
     http_request/3,

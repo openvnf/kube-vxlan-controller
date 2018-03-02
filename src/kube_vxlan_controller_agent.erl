@@ -1,7 +1,7 @@
 -module(kube_vxlan_controller_agent).
 -export([embed/3]).
 
--define(K8s, kube_vxlan_controller_k8s_client).
+-define(K8s, kube_vxlan_controller_k8s).
 -define(Log, kube_vxlan_controller_log).
 
 -define(AgentContainerName, <<"vxlan-controller-agent">>).
