@@ -35,9 +35,6 @@ check "Checking agent init container name..." \
 check "Checking agent init container image..." \
     '{.spec.initContainers[*].image}' aialferov/kube-vxlan-controller-agent
 
-check "Checking agent init container command..." \
-    '{.spec.initContainers[*].command}' kube-vxlan-controller-agent-init
-
 check "Checking agent init container capabilities..." \
     '{.spec.initContainers[*].securityContext.capabilities.add}' NET_ADMIN
 
