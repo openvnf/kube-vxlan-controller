@@ -195,6 +195,10 @@ handle_pod_initialisation(#{
 
     ?Pod:exec(
         Namespace, PodName, "vxlan-controller-agent-init",
+        "kill -TERM 1", Config
+    ),
+    ?Pod:exec(
+        Namespace, PodName, "vxlan-controller-agent-init",
         "touch /run/terminate", Config
     ),
 
