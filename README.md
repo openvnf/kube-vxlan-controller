@@ -87,3 +87,11 @@ $ kubectl -n kube-system edit configmap kube-vxlan-conrtoller
 ```
 
 To add or remove a relation the "data" section needs to be changed only.
+
+## Troubleshooting
+
+If a pod is not becoming a VXLAN network member or hangs in the agent init
+container it is possible to check if the pod answers the membership
+requirements. This could be done automatically using the
+[scripts/check.sh](https://gitlab.tpip.net/aalferov/kube-vxlan-controller/raw/master/scripts/check.sh)
+script of this repository.
