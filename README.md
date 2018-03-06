@@ -26,7 +26,7 @@ To make a pod VXLAN enabled it should answer the following conditions:
 
 * have a `vxlan: "true"` label
 * have a `vxlan.travelping.com/names: <VXLAN name list>` annotation
-* run a Kube VXLAN Controller Initialisation Agent with the security context
+* run a Kube VXLAN Controller Agent init container with the security context
 "NET_ADMIN" capability
 * run a Kube VXLAN Controller Agent sidecar container with the security context
 "NET_ADMIN" capability.
@@ -45,18 +45,11 @@ spec:
       initContainers:
       - name: vxlan-controller-agent-init
         image: aialferov/kube-vxlan-controller-agent
-        command:
-        - kube-vxlan-controller-agent-init
-        securityContext:
-          capabilities:
-            add: ["NET_ADMIN"]
+        securityContext.capabilities.add: ["NET_ADMIN"]
       containers:
       - name: vxlan-controller-agent
         image: aialferov/kube-vxlan-controller-agent
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
+        securityContext.capabilities.add: ["NET_ADMIN"]
 ```
 
 This can be saved into a file (for example "patch.yaml") and applied against a
