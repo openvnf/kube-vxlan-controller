@@ -29,11 +29,12 @@ shell:
 	$(REBAR) shell
 	$(REBAR) unlock
 
+upgrade:
+	$(REBAR) upgrade
+	$(REBAR) unlock
+
 run:
 	$(BIN_PATH_IN)/$(PROJECT) $(CONFIG)
-
-version:
-	@$(BIN_PATH_IN)/$(PROJECT) version | cut -d" " -f2
 
 install:
 	mkdir -p $(BIN_PATH)
@@ -55,9 +56,6 @@ clean:
 	$(REBAR) clean -a
 	$(REBAR) unlock
 
-distclean: clean
-	rm -rf $(BUILD_DIR)
-
 docker-build: all
 	$(MAKE) install DEST_DIR=$(BUILD_DIR_IMAGE) PREFIX=
 	install -p -m 644 Dockerfile $(BUILD_DIR_IMAGE)
@@ -73,14 +71,21 @@ docker-run:
 		$(USER)/$(PROJECT):$(VERSION) $(PROJECT) $(CONFIG)
 
 docker-start:
-	docker run --name $(PROJECT) --rm -itd -v ${PWD}/pki:/pki \
+	docker run --name $(PROJECT) --rm -d -v ${PWD}/pki:/pki \
 		$(USER)/$(PROJECT):$(VERSION) $(PROJECT) $(CONFIG)
 
 docker-stop:
-	docker stop $(PROJECT) -t0
-
-docker-attach:
-	docker attach $(PROJECT) -it
+	docker stop $(PROJECT)
 
 docker-clean:
+	rm -f $(BUILD_DIR_IMAGE)/Dockerfile
+	$(MAKE) uninstall DEST_DIR=$(BUILD_DIR_IMAGE) PREFIX=
+
+docker-clean-dangling:
 	docker images -qf dangling=true | xargs docker rmi
+
+distclean: clean docker-clean
+	rm -rf $(BUILD_DIR)
+
+version:
+	@$(BIN_PATH_IN)/$(PROJECT) version | cut -d" " -f2
