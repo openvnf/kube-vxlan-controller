@@ -24,12 +24,15 @@ $ kubectl apply -f k8s.yaml
 
 To make a pod VXLAN enabled it should answer the following conditions:
 
-* have a `vxlan: "true"` label
-* have a `vxlan.travelping.com/names: <VXLAN name list>` annotation
+* have a "vxlan" label set to "true"
+* have a "vxlan.travelping.com/names" annotation set to a list of networks
 * run a Kube VXLAN Controller Agent init container with the security context
 "NET_ADMIN" capability
 * run a Kube VXLAN Controller Agent sidecar container with the security context
 "NET_ADMIN" capability.
+
+A list of networks is a comma, space, new line (or any combination) separated
+values representing network name each.
 
 These conditions could be described in a single manifest:
 
@@ -74,7 +77,7 @@ According to [VXLAN specification](https://tools.ietf.org/html/rfc7348#section-4
 during the setup process a VXLAN should be provided with a Segment ID or
 "VXLAN Network Identifier (VNI)". The controller does that automatically using
 the predefined Kubernetes configmap object that should exist by the time of
-creating a VXLAN. The configmap describes relation of a VXLAN name to its VNI.
+creation a VXLAN. The configmap describes relation of a VXLAN name to its VNI.
 
 The manifest used in the "Deployment" section defines a configmap with initial
 set of VXLAN name to VNI relations and could be edited using this command:
