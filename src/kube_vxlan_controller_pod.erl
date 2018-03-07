@@ -3,7 +3,7 @@
 -export([
     filter/4,
 
-    list/1, list/2,
+    get/1, get/2, get/3,
     exec/5,
 
     vxlan_names/1
@@ -11,8 +11,6 @@
     
 -define(K8s, kube_vxlan_controller_k8s).
 -define(Log, kube_vxlan_controller_log).
-
--define(LabelSelector, "vxlan=true").
 
 -define(A8nVxlanNames, 'vxlan.travelping.com/names').
 -define(A8nVxlanNamesSep, ", \n").
@@ -37,14 +35,14 @@ filter(vxlan, VxlanName, PodName, Pods) ->
      binary_to_list(Name) /= PodName
     ].
 
-list(Config) -> list(false, Config).
-
-list(Namespace, Config) ->
+get(Config) -> get(false, "", Config).
+get(Selector, Config) -> get(false, Selector, Config).
+get(Namespace, Selector, Config) ->
     Resource = case Namespace of
         false -> "/api/v1/pods/";
         Namespace -> "/api/v1/namespaces/" ++ Namespace ++ "/pods/"
     end,
-    Query = [{"labelSelector", ?LabelSelector}],
+    Query = [{"labelSelector", Selector}],
     {ok, [#{items := Items}]} = ?K8s:http_request(Resource, Query, Config),
     Items.
 

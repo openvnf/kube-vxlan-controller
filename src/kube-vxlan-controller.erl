@@ -16,6 +16,8 @@
 -define(VxlanConfigName, "kube-vxlan-controller").
 -define(AgentContainerName, "vxlan-controller-agent").
 
+-define(LabelSelector, "vxlan=true").
+
 -define(MandatoryConfigParams, [
     server,
     namespace,
@@ -64,7 +66,7 @@ run(Config, State) ->
 
     Resource = "/api/v1/watch/pods",
     Query = [
-        {"labelSelector", "vxlan=true"},
+        {"labelSelector", ?LabelSelector},
         {"resourceVersion", resource_version(NewState)},
         {"timeoutSeconds", "10"}
     ],
@@ -212,7 +214,7 @@ handle_pod_added(#{
 }, Config, State) ->
     ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
 
-    Pods = ?Pod:list(Config),
+    Pods = ?Pod:get(?LabelSelector, Config),
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
@@ -232,7 +234,7 @@ handle_pod_deleted(#{
 }, Config, State) ->
     ?Log:info("Pod deleted ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
 
-    Pods = ?Pod:list(Config),
+    Pods = ?Pod:get(?LabelSelector, Config),
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
