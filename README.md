@@ -104,8 +104,8 @@ entries to set up configured networks peers forwarding. If added or removed pod
 is a member of a certain network, the Controller makes sure all the pods in
 this network get the fdb entries table updated.
 
-The controller uses Pod Exec API to execute commands in a pod via
-[Agent container](https://gitlab.tpip.net/aalferov/kube-vxlan-controller-agent).
+The controller uses the "Pod Exec API" to execute commands in a pod via
+[Agent](https://gitlab.tpip.net/aalferov/kube-vxlan-controller-agent) container.
 
 ## Troubleshooting
 
