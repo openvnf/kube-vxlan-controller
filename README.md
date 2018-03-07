@@ -80,7 +80,7 @@ The manifest used in the "Deployment" section defines a configmap with initial
 set of VXLAN name to VNI relations and could be edited using this command:
 
 ```
-$ kubectl -n kube-system edit configmap kube-vxlan-conrtoller
+$ kubectl -n kube-system edit configmap kube-vxlan-controller
 ```
 
 To add or remove a relation the "data" section needs to be changed only.
