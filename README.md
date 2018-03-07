@@ -45,11 +45,15 @@ spec:
       initContainers:
       - name: vxlan-controller-agent-init
         image: aialferov/kube-vxlan-controller-agent
-        securityContext.capabilities.add: ["NET_ADMIN"]
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
       containers:
       - name: vxlan-controller-agent
         image: aialferov/kube-vxlan-controller-agent
-        securityContext.capabilities.add: ["NET_ADMIN"]
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
 ```
 
 This can be saved into a file (for example "patch.yaml") and applied against a
