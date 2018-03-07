@@ -1,6 +1,8 @@
 USER = aialferov
 PROJECT = kube-vxlan-controller
-VERSION = $(shell $(MAKE) version)
+
+VERSION = $(shell cat src/$(PROJECT).app.src | grep vsn | cut -d\" -f2)
+GIT_SHA = $(shell git rev-parse HEAD | cut -c1-8)
 
 REBAR = ./rebar3
 
@@ -88,4 +90,4 @@ distclean: clean docker-clean
 	rm -rf $(BUILD_DIR)
 
 version:
-	@$(BIN_PATH_IN)/$(PROJECT) version | cut -d" " -f2
+	@echo "Version $(VERSION) (git-$(GIT_SHA))"
