@@ -88,6 +88,25 @@ $ kubectl -n kube-system edit configmap kube-vxlan-controller
 
 To add or remove a relation the "data" section needs to be changed only.
 
+## Controller Workflow
+
+The Controller is subscribed to the pod events using the
+[Pod Watch API](https://v1-8.docs.kubernetes.io/docs/api-reference/v1.8/#watch-64).
+On the "Pod added" event the Controller is looking for the network list
+annotation and sets up VXLAN networks according to it using the Agent init
+container. Thus the other init containers available in a pod can already work
+with the interfaces. Once the interfaces are set up, the Controller sends a TERM
+signal to the main process of the Agent to let it terminate so that the pod
+could proceed with its creation.
+
+Once a pod is running the sidecar Agent container is used to configure fdb
+entries to set up configured networks peers forwarding. If added or removed pod
+is a member of a certain network, the Controller makes sure all the pods in
+this network get the fdb entries table updated.
+
+The controller uses Pod Exec API to execute commands in a pod via
+[Agent container](https://gitlab.tpip.net/aalferov/kube-vxlan-controller-agent).
+
 ## Troubleshooting
 
 If a pod is not becoming a VXLAN network member or hangs in the agent init
