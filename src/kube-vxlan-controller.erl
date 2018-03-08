@@ -168,7 +168,7 @@ read_event(#{
       pod_uid => binary_to_list(PodUid),
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-      vxlan_names => ?Pod:vxlan_names(Annotations),
+      vxlan_names => vxlan_names(Annotations),
       phase => binary_to_list(Phase),
       init_agent_ready => lists:any(
           fun is_init_agent_ready/1,
