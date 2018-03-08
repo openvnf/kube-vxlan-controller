@@ -13,7 +13,6 @@
 
     bridge_macs/5,
 
-    vxlan_ids/1,
     vxlan_id/4,
 
     vxlan_up/4,
@@ -71,14 +70,6 @@ bridge_macs(Namespace, PodName, VxlanName, TargetIp, Config) ->
     [Mac || FdbRecord <- string:lexemes(Result, "\n"),
             [Mac, "dst", Ip|_ ] <- [string:lexemes(FdbRecord, " ")],
             Ip == TargetIp].
-
-vxlan_ids(Config = #{namespace := Namespace, vxlan_config_name := Name}) ->
-    Resource = "/api/v1/namespaces/" ++ Namespace ++ "/configmaps/" ++ Name,
-    {ok, [#{data := Data}]} = ?K8s:http_request(Resource, [], Config),
-
-    maps:fold(fun(K, V, Map) ->
-        maps:put(atom_to_list(K), binary_to_list(V), Map)
-    end, #{}, Data).
 
 vxlan_id(Namespace, PodName, VxlanName, Config) ->
     Command = "ip -d link show " ++ VxlanName,

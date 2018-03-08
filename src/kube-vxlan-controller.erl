@@ -2,6 +2,7 @@
 
 -export([main/1, run/2, config/0]).
 
+-define(Db, kube_vxlan_controller_db).
 -define(K8s, kube_vxlan_controller_k8s).
 -define(Cli, kube_vxlan_controller_cli).
 -define(Net, kube_vxlan_controller_net).
@@ -184,23 +185,25 @@ handle_pod_initialisation(#{
 }, Config, State) ->
     ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, VxlanNames}]),
 
-    VxlanIds = ?Net:vxlan_ids(Config),
+    {VxlanIds, NotFoundVxlanNames} = ?Db:vxlan_ids(VxlanNames, Config),
 
-    lists:foreach(fun(VxlanName) ->
-        case maps:find(VxlanName, VxlanIds) of
-            {ok, VxlanId} ->
-                ?Net:vxlan_init_pod(
-                    Namespace, PodName, VxlanName, VxlanId,
-                    maps:put(agent_container_name,
-                             "vxlan-controller-agent-init", Config)
-                );
-            error ->
-                ?Log:error("Vxlan Id for \"~s\" not found", [VxlanName])
-        end
-    end, VxlanNames),
+    NotFoundVxlanNames == [] orelse
+        ?Log:error("VXLAN Id for these networks not found: ~p",
+                   [NotFoundVxlanNames]),
 
-    ?Agent:terminate(Namespace, PodName,
-        maps:put(agent_container_name, "vxlan-controller-agent-init", Config)),
+    maps:fold(fun(VxlanName, VxlanId, _) ->
+        ?Net:vxlan_init_pod(
+            Namespace, PodName, VxlanName, VxlanId,
+            maps:put(agent_container_name,
+                     "vxlan-controller-agent-init", Config)
+        )
+    end, ok, VxlanIds),
+
+    ?Agent:terminate(
+        Namespace, PodName,
+        maps:put(agent_container_name,
+                 "vxlan-controller-agent-init", Config)
+    ),
 
     State.
 
@@ -217,8 +220,7 @@ handle_pod_added(#{
     lists:foreach(fun(VxlanName) ->
         VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
         ?Net:vxlan_add_pod(
-            Namespace, PodName, PodIp,
-            VxlanName, VxlanPods, Config
+            Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
     end, VxlanNames),
 
