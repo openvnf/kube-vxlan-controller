@@ -191,8 +191,8 @@ handle_pod_initialisation(#{
     {VxlanIds, NotFoundVxlanNames} = ?Db:vxlan_ids(VxlanNames, Config),
 
     NotFoundVxlanNames == [] orelse
-        ?Log:error("VXLAN Id for these networks not found: ~p",
-                   [NotFoundVxlanNames]),
+        ?Log:warning("VXLAN Id for these networks not found: ~p",
+                     [NotFoundVxlanNames]),
 
     maps:fold(fun(VxlanName, VxlanId, _) ->
         ?Net:vxlan_init_pod(
