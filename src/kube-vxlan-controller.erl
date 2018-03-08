@@ -7,6 +7,7 @@
 -define(Net, kube_vxlan_controller_net).
 -define(Pod, kube_vxlan_controller_pod).
 -define(Log, kube_vxlan_controller_log).
+-define(Agent, kube_vxlan_controller_agent).
 -define(State, kube_vxlan_controller_state).
 
 -define(Server, "https://api.k8s.nce-01.fra-01.eu.cennso.net").
@@ -198,14 +199,8 @@ handle_pod_initialisation(#{
         end
     end, VxlanNames),
 
-    ?Pod:exec(
-        Namespace, PodName, "vxlan-controller-agent-init",
-        "kill -TERM 1", Config
-    ),
-    ?Pod:exec(
-        Namespace, PodName, "vxlan-controller-agent-init",
-        "touch /run/terminate", Config
-    ),
+    ?Agent:terminate(Namespace, PodName,
+        maps:put(agent_container_name, "vxlan-controller-agent-init", Config)),
 
     State.
 
