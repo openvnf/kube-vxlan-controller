@@ -19,10 +19,7 @@
     vxlan_down/4
 ]).
 
--define(K8s, kube_vxlan_controller_k8s).
 -define(Agent, kube_vxlan_controller_agent).
--define(Utils, kube_vxlan_controller_utils).
--define(Log, kube_vxlan_controller_log).
 
 vxlan_init_pod(Namespace, PodName, VxlanName, VxlanId, Config) ->
     vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config),

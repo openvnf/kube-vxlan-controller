@@ -1,39 +1,17 @@
 -module(kube_vxlan_controller_pod).
 
 -export([
-    filter/4,
-
     get/1, get/2, get/3,
-    exec/5,
-
-    vxlan_names/1
+    exec/5
 ]).
     
 -define(K8s, kube_vxlan_controller_k8s).
 -define(Log, kube_vxlan_controller_log).
 
--define(A8nVxlanNames, 'vxlan.travelping.com/names').
--define(A8nVxlanNamesSep, ", \n").
-
 -define(ExecQuery, [
     {"stdout", "true"},
     {"stderr", "true"}
 ]).
-
-filter(vxlan, VxlanName, PodName, Pods) ->
-    [{binary_to_list(Name), binary_to_list(PodIp)} ||
-     #{metadata := #{
-        name := Name,
-        annotations := Annotations
-      },
-      status := #{
-        podIP := PodIp,
-        phase := <<"Running">>
-      }
-     } <- Pods,
-     lists:member(VxlanName, vxlan_names(Annotations)) andalso
-     binary_to_list(Name) /= PodName
-    ].
 
 get(Config) -> get(false, "", Config).
 get(Selector, Config) -> get(false, Selector, Config).
@@ -68,7 +46,3 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
             ?Log:error(Reason),
             ""
     end.
-
-vxlan_names(Annotations) ->
-    VxlanNames = binary_to_list(maps:get(?A8nVxlanNames, Annotations, <<>>)),
-    string:lexemes(VxlanNames, ?A8nVxlanNamesSep).

@@ -21,6 +21,9 @@
 
 -define(LabelSelector, "vxlan=true").
 
+-define(A8nVxlanNames, 'vxlan.travelping.com/names').
+-define(A8nVxlanNamesSep, ", \n").
+
 -define(MandatoryConfigParams, [
     server,
     namespace,
@@ -218,7 +221,7 @@ handle_pod_added(#{
     Pods = ?Pod:get(?LabelSelector, Config),
 
     lists:foreach(fun(VxlanName) ->
-        VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
+        VxlanPods = vxlan_members(VxlanName, PodName, Pods),
         ?Net:vxlan_add_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
@@ -237,10 +240,29 @@ handle_pod_deleted(#{
     Pods = ?Pod:get(?LabelSelector, Config),
 
     lists:foreach(fun(VxlanName) ->
-        VxlanPods = ?Pod:filter(vxlan, VxlanName, PodName, Pods),
+        VxlanPods = vxlan_members(VxlanName, PodName, Pods),
         ?Net:vxlan_delete_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
     end, VxlanNames),
 
     State.
+
+vxlan_members(VxlanName, ExcludePodName, Pods) ->
+    [{binary_to_list(Name), binary_to_list(PodIp)} ||
+     #{metadata := #{
+        name := Name,
+        annotations := Annotations
+      },
+      status := #{
+        podIP := PodIp,
+        phase := <<"Running">>
+      }
+     } <- Pods,
+     lists:member(VxlanName, vxlan_names(Annotations)) andalso
+     binary_to_list(Name) /= ExcludePodName
+    ].
+
+vxlan_names(Annotations) ->
+    VxlanNames = binary_to_list(maps:get(?A8nVxlanNames, Annotations, <<>>)),
+    string:lexemes(VxlanNames, ?A8nVxlanNamesSep).
