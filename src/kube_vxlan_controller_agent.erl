@@ -12,7 +12,9 @@ exec(Namespace, PodName, Command, Config) ->
     ?Pod:exec(Namespace, PodName, ContainerName, Command, Config).
 
 terminate(Namespace, PodName, Config) ->
+    %%% TODO: provided for BC, remove once not needed
     exec(Namespace, PodName, "touch /run/terminate", Config),
+    %%%
     exec(Namespace, PodName, "kill -TERM 1", Config).
 
 %-define(AgentContainerName, <<"vxlan-controller-agent">>).
