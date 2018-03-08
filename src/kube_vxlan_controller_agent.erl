@@ -2,7 +2,8 @@
 
 -export([
     exec/4,
-    terminate/3
+    terminate/3,
+    version/3
 ]).
 
 -define(Pod, kube_vxlan_controller_pod).
@@ -16,6 +17,9 @@ terminate(Namespace, PodName, Config) ->
     exec(Namespace, PodName, "touch /run/terminate", Config),
     %%%
     exec(Namespace, PodName, "kill -TERM 1", Config).
+
+version(Namespace, PodName, Config) ->
+    exec(Namespace, PodName, "kube-vxlan-controller-agent version", Config).
 
 %-define(AgentContainerName, <<"vxlan-controller-agent">>).
 %-define(AgentImage, <<"aialferov/kube-vxlan-controller-agent">>).
