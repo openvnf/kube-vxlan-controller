@@ -7,6 +7,7 @@
 -define(Net, kube_vxlan_controller_net).
 -define(Pod, kube_vxlan_controller_pod).
 -define(Log, kube_vxlan_controller_log).
+-define(State, kube_vxlan_controller_state).
 
 -define(Server, "https://api.k8s.nce-01.fra-01.eu.cennso.net").
 -define(NamespaceFile, "pki/namespace").
@@ -57,17 +58,19 @@ run(Config) ->
     end.
 
 run(Config, State) ->
-    NewState = case resource_version_shown(State) of
+    ResourceVersion = ?State:resource_version(State),
+
+    NewState = case ?State:is_resource_version_shown(State) of
         true -> State;
         false ->
-            ?Log:info("Watching pods from version: ~s", [resource_version(State)]),
-            set_resource_version_shown(State)
+            ?Log:info("Watching pods from version: ~s", [ResourceVersion]),
+            ?State:set_resource_version_shown(State)
     end,
 
     Resource = "/api/v1/watch/pods",
     Query = [
         {"labelSelector", ?LabelSelector},
-        {"resourceVersion", resource_version(NewState)},
+        {"resourceVersion", ResourceVersion},
         {"timeoutSeconds", "10"}
     ],
     case ?K8s:http_stream_request(Resource, Query, Config) of
@@ -92,12 +95,12 @@ process_event_fun(Config) -> fun(Event, State) ->
     {EventType, Resource} = read_event(Event),
     ?Log:info("~s~n~p", [EventType, Resource]),
 
-    NewState = set_resource_version(Resource, State),
+    NewState = ?State:set_resource_version(Resource, State),
     process_event(EventType, Resource, Config, NewState)
 end.
 
 process_event(pod_added, Pod = #{phase := "Pending"}, Config, State) ->
-    NewState = set_pod_pending(add, Pod, State),
+    NewState = ?State:set_pod_pending(add, Pod, State),
     case maps:get(init_agent_ready, Pod) of
         true -> handle_pod_initialisation(Pod, Config, NewState);
         false -> NewState
@@ -113,22 +116,22 @@ process_event(pod_modified, Pod = #{phase := "Pending"}, Config, State) ->
     end;
 
 process_event(pod_modified, Pod = #{phase := "Running"}, Config, State) ->
-    case pod_pending_action(Pod, State) of
+    case ?State:pod_pending_action(Pod, State) of
         {ok, add} ->
-            NewState = unset_pod_pending(Pod, State),
+            NewState = ?State:unset_pod_pending(Pod, State),
             handle_pod_added(Pod, Config, NewState);
         {ok, modify} ->
             State;
         error ->
-            set_pod_pending(modify, Pod, State)
+            ?State:set_pod_pending(modify, Pod, State)
     end;
 
 process_event(pod_deleted, Pod, Config, State) ->
-    case pod_pending_action(Pod, State) of
+    case ?State:pod_pending_action(Pod, State) of
         {ok, add} -> State;
         {ok, modify} ->
-            NewPod = merge_pod_pending_info(Pod, State),
-            NewState = unset_pod_pending(NewPod, State),
+            NewPod = ?State:merge_pod_pending_info(Pod, State),
+            NewState = ?State:unset_pod_pending(NewPod, State),
             handle_pod_deleted(NewPod, Config, NewState);
         error -> State
     end;
@@ -244,44 +247,3 @@ handle_pod_deleted(#{
     end, VxlanNames),
 
     State.
-
-merge_pod_pending_info(Pod = #{pod_uid := PodUid}, State) ->
-    #{pending_info := Info} = maps:get(PodUid, State),
-    maps:merge(Pod, Info).
-
-pod_pending_action(#{pod_uid := PodUid}, State) ->
-    case maps:find(PodUid, State) of
-        {ok, #{pending_action := Action}} -> {ok, Action};
-        error -> error
-    end.
-
-set_pod_pending(Action, #{pod_uid := PodUid, pod_ip := PodIp}, State) ->
-    maps:put(PodUid, #{pending_action => Action,
-                       pending_info => #{pod_ip => PodIp}}, State).
-
-unset_pod_pending(#{pod_uid := PodUid}, State) ->
-    maps:remove(PodUid, State).
-
-resource_version(State) ->
-    maps:get(resource_version, State, "0").
-
-set_resource_version(#{resource_version := Value}, State) ->
-    OldValue = list_to_integer(resource_version(State)),
-    ProposedValue = list_to_integer(Value),
-
-    case ProposedValue >= OldValue of
-        true ->
-            NewValue = integer_to_list(ProposedValue + 1),
-            maps:put(resource_version, NewValue,
-                     set_resource_version_unshown(State));
-        false -> State
-    end.
-
-resource_version_shown(State) ->
-    maps:get(resource_version_shown, State, false).
-
-set_resource_version_shown(State) ->
-    maps:put(resource_version_shown, true, State).
-
-set_resource_version_unshown(State) ->
-    maps:put(resource_version_shown, false, State).
