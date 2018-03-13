@@ -23,7 +23,8 @@ CONFIG = \
 	--selector=vxlan-test.travelping.com=true \
 	--annotation=vxlan-test.travelping.com/networks \
 	--vxlan-config-name=kube-vxlan-controller \
-	--agent-container-name=vxlan-controller-agent
+	--agent-container-name=vxlan-controller-agent \
+	--agent-init-container-name=vxlan-controller-agent-init
 
 all:
 	$(REBAR) compile

@@ -54,5 +54,6 @@ spec:
         - --annotation=vxlan.travelping.com/names
         - --vxlan-config-name=kube-vxlan-controller
         - --agent-container-name=vxlan-controller-agent
+        - --agent-init-container-name=vxlan-controller-agent-init
       serviceAccount: kube-vxlan-controller
       serviceAccountName: kube-vxlan-controller

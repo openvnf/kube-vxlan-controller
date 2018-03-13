@@ -34,7 +34,8 @@
     selector,
     annotation,
     vxlan_config_name,
-    agent_container_name
+    agent_container_name,
+    agent_init_container_name
 ]).
 
 main(Args) ->
@@ -188,15 +189,16 @@ read_event(#{
       vxlan_names => vxlan_names(Annotations, Config),
       phase => binary_to_list(Phase),
       init_agent_ready => lists:any(
-          fun is_init_agent_ready/1,
+          is_init_agent_ready_fun(Config),
           maps:get(initContainerStatuses, Status, [])
       )
     }
 }.
 
-is_init_agent_ready(#{name := Name, state := State}) ->
-    Name == <<"vxlan-controller-agent-init">> andalso
-    maps:is_key(running, State).
+is_init_agent_ready_fun(Config) -> fun(#{name := Name, state := State}) ->
+    binary_to_list(Name) == maps:get(agent_init_container_name, Config) andalso
+    maps:is_key(running, State)
+end.
 
 handle_pod_initialisation(#{
     namespace := Namespace,
@@ -212,7 +214,7 @@ handle_pod_initialisation(#{
                      [NotFoundVxlanNames]),
 
     AgentConfig = maps:put(agent_container_name,
-                           "vxlan-controller-agent-init", Config),
+                  maps:get(agent_init_container_name, Config), Config),
 
     maps:fold(fun(VxlanName, VxlanId, _) ->
         ?Net:vxlan_init_pod(Namespace, PodName, VxlanName, VxlanId, AgentConfig)

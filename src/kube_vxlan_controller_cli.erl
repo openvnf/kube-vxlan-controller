@@ -23,6 +23,7 @@
     "       --annotation=<network list annotation>~n"
     "       --vxlan-config-name=<vxlan config map name>~n"
     "       --agent-container-name=<name>~n"
+    "       --agent-init-container-name=<name>~n"
 ).
 
 -define(Version, "Version ~s (git-~s)~n").
