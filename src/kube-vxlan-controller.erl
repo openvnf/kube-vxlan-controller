@@ -11,6 +11,7 @@
 -define(Agent, kube_vxlan_controller_agent).
 -define(State, kube_vxlan_controller_state).
 -define(Config, kube_vxlan_controller_config).
+-define(Inspect, kube_vxlan_controller_inspect).
 
 -define(Server, "https://api.k8s.nce-01.fra-01.eu.cennso.net").
 -define(NamespaceFile, "pki/namespace").
@@ -39,7 +40,9 @@
 main(Args) ->
     application:ensure_all_started(?MODULE),
     case ?Cli:read_args(Args) of
-        {ok, {run, Config}} -> run(Config);
+        {ok, {run, {_CmdArgs, Config}}} -> run(Config);
+        {ok, {inspect, Subject, {CmdArgs, Config}}} ->
+            inspect(CmdArgs, Subject, Config);
         {ok, version} -> show_version();
         {ok, usage} -> show_usage()
     end.
@@ -65,6 +68,12 @@ is_config_valid(Config) ->
 run(Config) ->
     case is_config_valid(Config) of
         true -> run(Config, #{});
+        false -> show_usage()
+    end.
+
+inspect(Subject, Args, Config) ->
+    case is_config_valid(Config) of
+        true -> ?Inspect:Subject(Args, Config);
         false -> show_usage()
     end.
 
