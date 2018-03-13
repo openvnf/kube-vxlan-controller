@@ -7,13 +7,15 @@
 ]).
 
 -define(Usage,
-    "Usage: kube-vxlan-controller~n"
+    "Usage: kube-vxlan-controller run~n"
     "           --server=<Kubernetes API server>~n"
     "           --namespace-file=<filepath>~n"
     "           --ca-cert-file=<filepath>~n"
     "           --token-file=<filepath>~n"
     "           --vxlan-config-name=<vxlan config map name>~n"
     "           --agent-container-name=<name>~n"
+    "~n"
+    "       kube-vxlan-controller version~n"
 ).
 
 -define(Version, "Version ~s (git-~s)~n").
@@ -21,10 +23,9 @@
 usage() -> ?Usage.
 version({Vsn, GitSha}) -> lists:flatten(io_lib:format(?Version, [Vsn, GitSha])).
 
+read_args(["run"|Args]) -> {ok, {run, lists:foldl(fun read_arg/2, #{}, Args)}};
 read_args(["version"]) -> {ok, version};
-
-read_args(Args) ->
-    {ok, {run, lists:foldl(fun read_arg/2, #{}, Args)}}.
+read_args(_Other) -> {ok, usage}.
 
 read_arg("--" ++ Arg, Config) ->
     case string:lexemes(Arg, "=") of

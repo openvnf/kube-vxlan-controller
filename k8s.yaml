@@ -45,7 +45,7 @@ spec:
       - name: kube-vxlan-controller
         image: aialferov/kube-vxlan-controller:latest
         args:
-        - kube-vxlan-controller
+        - run
         - --server=https://kubernetes.default
         - --namespace-file=/var/run/secrets/kubernetes.io/serviceaccount/namespace
         - --ca-cert-file=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt

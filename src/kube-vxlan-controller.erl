@@ -38,7 +38,8 @@ main(Args) ->
     application:ensure_all_started(?MODULE),
     case ?Cli:read_args(Args) of
         {ok, {run, Config}} -> run(Config);
-        {ok, version} -> show_version()
+        {ok, version} -> show_version();
+        {ok, usage} -> show_usage()
     end.
 
 show_version() -> io:format(?Cli:version(?Config:version())).

@@ -2,4 +2,4 @@ FROM aialferov/alpinerl
 
 ADD bin /bin
 
-CMD /bin/kube-vxlan-controller
+ENTRYPOINT ["/bin/kube-vxlan-controller"]

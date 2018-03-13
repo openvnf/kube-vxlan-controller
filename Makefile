@@ -36,7 +36,7 @@ upgrade:
 	$(REBAR) unlock
 
 run:
-	$(BIN_PATH_IN)/$(PROJECT) $(CONFIG)
+	$(BIN_PATH_IN)/$(PROJECT) run $(CONFIG)
 
 install:
 	mkdir -p $(BIN_PATH)
@@ -70,7 +70,7 @@ docker-push:
 
 docker-run:
 	docker run --name $(PROJECT) --rm -it -v ${PWD}/pki:/pki \
-		$(USER)/$(PROJECT):$(VERSION) $(PROJECT) $(CONFIG)
+		$(USER)/$(PROJECT):$(VERSION) run $(CONFIG)
 
 docker-start:
 	docker run --name $(PROJECT) --rm -d -v ${PWD}/pki:/pki \
