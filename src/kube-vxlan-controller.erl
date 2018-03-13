@@ -196,19 +196,14 @@ handle_pod_initialisation(#{
         ?Log:warning("VXLAN Id for these networks not found: ~p",
                      [NotFoundVxlanNames]),
 
+    AgentConfig = maps:put(agent_container_name,
+                           "vxlan-controller-agent-init", Config),
+
     maps:fold(fun(VxlanName, VxlanId, _) ->
-        ?Net:vxlan_init_pod(
-            Namespace, PodName, VxlanName, VxlanId,
-            maps:put(agent_container_name,
-                     "vxlan-controller-agent-init", Config)
-        )
+        ?Net:vxlan_init_pod(Namespace, PodName, VxlanName, VxlanId, AgentConfig)
     end, ok, VxlanIds),
 
-    ?Agent:terminate(
-        Namespace, PodName,
-        maps:put(agent_container_name,
-                 "vxlan-controller-agent-init", Config)
-    ),
+    ?Agent:terminate(Namespace, PodName, AgentConfig),
 
     State.
 
