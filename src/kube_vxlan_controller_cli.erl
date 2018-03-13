@@ -12,6 +12,7 @@
     "           --namespace-file=<filepath>~n"
     "           --ca-cert-file=<filepath>~n"
     "           --token-file=<filepath>~n"
+    "           --selector=<label selector>~n"
     "           --vxlan-config-name=<vxlan config map name>~n"
     "           --agent-container-name=<name>~n"
     "~n"
@@ -28,7 +29,7 @@ read_args(["version"]) -> {ok, version};
 read_args(_Other) -> {ok, usage}.
 
 read_arg("--" ++ Arg, Config) ->
-    case string:lexemes(Arg, "=") of
+    case string:split(Arg, "=") of
         [Key, Value] -> read_arg(Key, Value, Config);
         _Other -> Config
     end.

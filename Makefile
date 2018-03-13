@@ -20,6 +20,7 @@ CONFIG = \
 	--namespace-file=pki/namespace \
 	--ca-cert-file=pki/ca.pem \
 	--token-file=pki/token \
+	--selector=vxlan-test.travelping.com=true \
 	--vxlan-config-name=kube-vxlan-controller \
 	--agent-container-name=vxlan-controller-agent
 

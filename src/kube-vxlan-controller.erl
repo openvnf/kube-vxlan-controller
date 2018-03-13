@@ -20,7 +20,7 @@
 -define(VxlanConfigName, "kube-vxlan-controller").
 -define(AgentContainerName, "vxlan-controller-agent").
 
--define(LabelSelector, "vxlan=true").
+-define(LabelSelector, "vxlan-test.travelping.com=true").
 
 -define(A8nVxlanNames, 'vxlan.travelping.com/names').
 -define(A8nVxlanNamesSep, ", \n").
@@ -30,6 +30,7 @@
     namespace,
     ca_cert_file,
     token,
+    selector,
     vxlan_config_name,
     agent_container_name
 ]).
@@ -50,6 +51,7 @@ config() -> #{
     namespace => binary_to_list(element(2, file:read_file(?NamespaceFile))),
     ca_cert_file => ?CaCertFile,
     token => binary_to_list(element(2, file:read_file(?TokenFile))),
+    selector => ?LabelSelector,
     vxlan_config_name => ?VxlanConfigName,
     agent_container_name => ?AgentContainerName
 }.
@@ -66,18 +68,19 @@ run(Config) ->
 
 run(Config, State) ->
     ResourceVersion = ?State:resource_version(State),
+    Selector = maps:get(selector, Config),
 
     NewState = case ?State:is_resource_version_shown(State) of
         true -> State;
         false ->
             ?Log:info("Watching pods (selector: ~s) from version: ~s",
-                      [?LabelSelector, ResourceVersion]),
+                      [Selector, ResourceVersion]),
             ?State:set_resource_version_shown(State)
     end,
 
     Resource = "/api/v1/watch/pods",
     Query = [
-        {"labelSelector", ?LabelSelector},
+        {"labelSelector", Selector},
         {"resourceVersion", ResourceVersion},
         {"timeoutSeconds", "10"}
     ],
@@ -216,7 +219,7 @@ handle_pod_added(#{
 }, Config, State) ->
     ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
 
-    Pods = ?Pod:get(?LabelSelector, Config),
+    Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods),
@@ -235,7 +238,7 @@ handle_pod_deleted(#{
 }, Config, State) ->
     ?Log:info("Pod deleted ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
 
-    Pods = ?Pod:get(?LabelSelector, Config),
+    Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods),
