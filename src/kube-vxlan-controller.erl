@@ -68,7 +68,8 @@ run(Config, State) ->
     NewState = case ?State:is_resource_version_shown(State) of
         true -> State;
         false ->
-            ?Log:info("Watching pods from version: ~s", [ResourceVersion]),
+            ?Log:info("Watching pods (selector: ~s) from version: ~s",
+                      [?LabelSelector, ResourceVersion]),
             ?State:set_resource_version_shown(State)
     end,
 
