@@ -236,7 +236,8 @@ handle_pod_added(#{
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
-        ?Log:info("Pods within \"~s\" to join: ~p", [VxlanName, VxlanPods]),
+        ?Log:info("Pods within \"~s\" to join:~n~s",
+                  [VxlanName, vxlan_members_format(VxlanPods)]),
         ?Net:vxlan_add_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
@@ -256,7 +257,8 @@ handle_pod_deleted(#{
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
-        ?Log:info("Pods within \"~s\" to leave: ~p", [VxlanName, VxlanPods]),
+        ?Log:info("Pods within \"~s\" to leave:~n~s",
+                  [VxlanName, vxlan_members_format(VxlanPods)]),
         ?Net:vxlan_delete_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
@@ -284,3 +286,7 @@ vxlan_members(VxlanName, ExcludePodName, Pods, Config) ->
 vxlan_names(Annotations, #{annotation := Annotation}) ->
     VxlanNames = binary_to_list(maps:get(Annotation, Annotations, <<>>)),
     string:lexemes(VxlanNames, ?A8nVxlanNamesSep).
+
+vxlan_members_format(Pods) ->
+    lists:flatten(io_lib:format(
+        lists:flatten(lists:duplicate(length(Pods), "~p~n")), Pods)).
