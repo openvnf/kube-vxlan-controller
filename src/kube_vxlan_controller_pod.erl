@@ -25,7 +25,10 @@ get(Namespace, Selector, Config) ->
     Items.
 
 exec(Namespace, PodName, ContainerName, Command, Config) ->
-    ?Log:info("~s/~s/~s: ~s", [Namespace, PodName, ContainerName, Command]),
+    Silent = maps:get(silent, Config, false),
+
+    Silent orelse
+        ?Log:info("~s/~s/~s: ~s", [Namespace, PodName, ContainerName, Command]),
 
     Resource = "/api/v1/namespaces/" ++ Namespace ++
                "/pods/" ++ PodName ++ "/exec",
@@ -40,7 +43,7 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
         {ok, Socket} ->
             {ok, Result} = ?K8s:ws_recv(Socket),
             ?K8s:ws_disconnect(Socket),
-            ?Log:info("~s", [Result]),
+            Silent orelse ?Log:info("~s", [Result]),
             Result;
         {error, Reason} ->
             ?Log:error(Reason),
