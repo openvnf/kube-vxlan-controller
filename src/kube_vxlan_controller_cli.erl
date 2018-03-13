@@ -45,6 +45,9 @@ read_arg(namespace_file, Value, Config) ->
 read_arg(token_file, Value, Config) ->
     read_arg(token, read_file(Value), Config);
 
+read_arg(Key = annotation, Value, Config) ->
+    maps:put(Key, list_to_atom(Value), Config);
+
 read_arg(Key, Value, Config) -> maps:put(Key, Value, Config).
 
 read_file(FileName) ->

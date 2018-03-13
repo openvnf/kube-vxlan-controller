@@ -219,12 +219,13 @@ handle_pod_added(#{
     pod_ip := PodIp,
     vxlan_names := VxlanNames
 }, Config, State) ->
-    ?Log:info("Pod added ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
+    ?Log:info("Pod added: ~p", [{Namespace, PodName, PodIp, VxlanNames}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
+        ?Log:info("Pods to join: ~p", [VxlanPods]),
         ?Net:vxlan_add_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
@@ -238,12 +239,13 @@ handle_pod_deleted(#{
     pod_ip := PodIp,
     vxlan_names := VxlanNames
 }, Config, State) ->
-    ?Log:info("Pod deleted ~p:", [{Namespace, PodName, PodIp, VxlanNames}]),
+    ?Log:info("Pod deleted: ~p", [{Namespace, PodName, PodIp, VxlanNames}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
+        ?Log:info("Pods to leave: ~p", [VxlanPods]),
         ?Net:vxlan_delete_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
