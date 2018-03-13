@@ -265,19 +265,21 @@ handle_pod_deleted(#{
     State.
 
 vxlan_members(VxlanName, ExcludePodName, Pods, Config) ->
-    [{binary_to_list(Name), binary_to_list(PodIp)} ||
+    [{binary_to_list(Namespace),
+      binary_to_list(Name),
+      binary_to_list(PodIp)} ||
      #{metadata := #{
-        name := Name,
-        annotations := Annotations
+         namespace := Namespace,
+         name := Name,
+         annotations := Annotations
       },
-      status := #{
-        podIP := PodIp,
-        phase := <<"Running">>
-      }
+       status := #{
+         podIP := PodIp,
+         phase := <<"Running">>
+       }
      } <- Pods,
      lists:member(VxlanName, vxlan_names(Annotations, Config)) andalso
-     binary_to_list(Name) /= ExcludePodName
-    ].
+     binary_to_list(Name) /= ExcludePodName].
 
 vxlan_names(Annotations, #{annotation := Annotation}) ->
     VxlanNames = binary_to_list(maps:get(Annotation, Annotations, <<>>)),

@@ -26,14 +26,14 @@ vxlan_init_pod(Namespace, PodName, VxlanName, VxlanId, Config) ->
     vxlan_up(Namespace, PodName, VxlanName, Config).
 
 vxlan_add_pod(Namespace, PodName, PodIp, VxlanName, VxlanPods, Config) ->
-    lists:foreach(fun({VxlanPodName, VxlanPodIp}) ->
-        bridge_append(Namespace, VxlanPodName, VxlanName, PodIp, Config),
+    lists:foreach(fun({VxlanPodNamespace, VxlanPodName, VxlanPodIp}) ->
+        bridge_append(VxlanPodNamespace, VxlanPodName, VxlanName, PodIp, Config),
         bridge_append(Namespace, PodName, VxlanName, VxlanPodIp, Config)
     end, VxlanPods).
 
-vxlan_delete_pod(Namespace, _PodName, PodIp, VxlanName, VxlanPods, Config) ->
-    lists:foreach(fun({VxlanPodName, _VxlanPodIp}) ->
-        bridge_delete(Namespace, VxlanPodName, VxlanName, PodIp, Config)
+vxlan_delete_pod(_Namespace, _PodName, PodIp, VxlanName, VxlanPods, Config) ->
+    lists:foreach(fun({VxlanPodNamespace, VxlanPodName, _VxlanPodIp}) ->
+        bridge_delete(VxlanPodNamespace, VxlanPodName, VxlanName, PodIp, Config)
     end, VxlanPods).
 
 vxlan_add(Namespace, PodName, VxlanName, VxlanId, Config) ->
