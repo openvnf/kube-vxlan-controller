@@ -22,7 +22,7 @@
 
 -define(LabelSelector, "vxlan-test.travelping.com=true").
 
--define(A8nVxlanNames, 'vxlan.travelping.com/names').
+-define(A8nVxlanNames, 'vxlan-test.travelping.com/networks').
 -define(A8nVxlanNamesSep, ", \n").
 
 -define(MandatoryConfigParams, [
@@ -31,6 +31,7 @@
     ca_cert_file,
     token,
     selector,
+    annotation,
     vxlan_config_name,
     agent_container_name
 ]).
@@ -52,6 +53,7 @@ config() -> #{
     ca_cert_file => ?CaCertFile,
     token => binary_to_list(element(2, file:read_file(?TokenFile))),
     selector => ?LabelSelector,
+    annotation => ?A8nVxlanNames,
     vxlan_config_name => ?VxlanConfigName,
     agent_container_name => ?AgentContainerName
 }.
@@ -103,7 +105,7 @@ process_events(Events, Config, State) ->
     lists:foldl(process_event_fun(Config), State, Events).
 
 process_event_fun(Config) -> fun(Event, State) ->
-    {EventType, Resource} = read_event(Event),
+    {EventType, Resource} = read_event(Event, Config),
     ?Log:info("~s~n~p", [EventType, Resource]),
 
     NewState = ?State:set_resource_version(Resource, State),
@@ -164,7 +166,7 @@ read_event(#{
         phase := Phase
       }
     }
-}) -> {
+}, Config) -> {
     list_to_atom(
         string:lowercase(binary_to_list(Kind)) ++
         [$_|string:lowercase(binary_to_list(Type))]
@@ -174,7 +176,7 @@ read_event(#{
       pod_uid => binary_to_list(PodUid),
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-      vxlan_names => vxlan_names(Annotations),
+      vxlan_names => vxlan_names(Annotations, Config),
       phase => binary_to_list(Phase),
       init_agent_ready => lists:any(
           fun is_init_agent_ready/1,
@@ -222,7 +224,7 @@ handle_pod_added(#{
     Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun(VxlanName) ->
-        VxlanPods = vxlan_members(VxlanName, PodName, Pods),
+        VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
         ?Net:vxlan_add_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
@@ -241,7 +243,7 @@ handle_pod_deleted(#{
     Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun(VxlanName) ->
-        VxlanPods = vxlan_members(VxlanName, PodName, Pods),
+        VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
         ?Net:vxlan_delete_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
@@ -249,7 +251,7 @@ handle_pod_deleted(#{
 
     State.
 
-vxlan_members(VxlanName, ExcludePodName, Pods) ->
+vxlan_members(VxlanName, ExcludePodName, Pods, Config) ->
     [{binary_to_list(Name), binary_to_list(PodIp)} ||
      #{metadata := #{
         name := Name,
@@ -260,10 +262,10 @@ vxlan_members(VxlanName, ExcludePodName, Pods) ->
         phase := <<"Running">>
       }
      } <- Pods,
-     lists:member(VxlanName, vxlan_names(Annotations)) andalso
+     lists:member(VxlanName, vxlan_names(Annotations, Config)) andalso
      binary_to_list(Name) /= ExcludePodName
     ].
 
-vxlan_names(Annotations) ->
-    VxlanNames = binary_to_list(maps:get(?A8nVxlanNames, Annotations, <<>>)),
+vxlan_names(Annotations, #{annotation := Annotation}) ->
+    VxlanNames = binary_to_list(maps:get(Annotation, Annotations, <<>>)),
     string:lexemes(VxlanNames, ?A8nVxlanNamesSep).

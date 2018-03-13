@@ -51,6 +51,7 @@ spec:
         - --ca-cert-file=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         - --token-file=/var/run/secrets/kubernetes.io/serviceaccount/token
         - --selector=vxlan=true
+        - --annotation=vxlan.travelping.com/names
         - --vxlan-config-name=kube-vxlan-controller
         - --agent-container-name=vxlan-controller-agent
       serviceAccount: kube-vxlan-controller

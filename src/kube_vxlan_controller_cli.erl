@@ -13,6 +13,7 @@
     "           --ca-cert-file=<filepath>~n"
     "           --token-file=<filepath>~n"
     "           --selector=<label selector>~n"
+    "           --annotation=<network list annotation>~n"
     "           --vxlan-config-name=<vxlan config map name>~n"
     "           --agent-container-name=<name>~n"
     "~n"

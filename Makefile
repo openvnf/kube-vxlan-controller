@@ -21,6 +21,7 @@ CONFIG = \
 	--ca-cert-file=pki/ca.pem \
 	--token-file=pki/token \
 	--selector=vxlan-test.travelping.com=true \
+	--annotation=vxlan-test.travelping.com/networks \
 	--vxlan-config-name=kube-vxlan-controller \
 	--agent-container-name=vxlan-controller-agent
 
