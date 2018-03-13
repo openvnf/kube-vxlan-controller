@@ -3,8 +3,9 @@ case os:cmd("git rev-parse HEAD") of
         GitShaShort = string:slice(GitSha, 0, 8),
 
         {application, Name, Config} = lists:keyfind(application, 1, CONFIG),
-        Env = {env, [{git_sha, GitShaShort}]},
+        Env = proplists:get_value(env, Config, []),
+        NewEnv = lists:keystore(git_sha, 1, Env, {git_sha, GitShaShort}),
 
-        NewConfig = lists:keystore(env, 1, Config, Env),
+        NewConfig = lists:keystore(env, 1, Config, {env, NewEnv}),
         lists:keystore(application, 1, CONFIG, {application, Name, NewConfig})
 end.
