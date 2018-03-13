@@ -236,7 +236,7 @@ handle_pod_added(#{
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
-        ?Log:info("Pods to join: ~p", [VxlanPods]),
+        ?Log:info("Pods within \"~s\" to join: ~p", [VxlanName, VxlanPods]),
         ?Net:vxlan_add_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
@@ -256,7 +256,7 @@ handle_pod_deleted(#{
 
     lists:foreach(fun(VxlanName) ->
         VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
-        ?Log:info("Pods to leave: ~p", [VxlanPods]),
+        ?Log:info("Pods within \"~s\" to leave: ~p", [VxlanName, VxlanPods]),
         ?Net:vxlan_delete_pod(
             Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
         )
