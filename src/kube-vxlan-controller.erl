@@ -10,6 +10,7 @@
 -define(Log, kube_vxlan_controller_log).
 -define(Agent, kube_vxlan_controller_agent).
 -define(State, kube_vxlan_controller_state).
+-define(Config, kube_vxlan_controller_config).
 
 -define(Server, "https://api.k8s.nce-01.fra-01.eu.cennso.net").
 -define(NamespaceFile, "pki/namespace").
@@ -37,10 +38,10 @@ main(Args) ->
     application:ensure_all_started(?MODULE),
     case ?Cli:read_args(Args) of
         {ok, {run, Config}} -> run(Config);
-        {ok, {version, Version}} -> show_version(Version)
+        {ok, version} -> show_version()
     end.
 
-show_version(Version) -> io:format(?Cli:version(Version)).
+show_version() -> io:format(?Cli:version(?Config:version())).
 show_usage() -> io:format(?Cli:usage()).
 
 config() -> #{

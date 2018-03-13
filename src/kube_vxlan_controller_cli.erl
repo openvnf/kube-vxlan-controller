@@ -6,8 +6,6 @@
     read_args/1
 ]).
 
--define(App, 'kube-vxlan-controller').
-
 -define(Usage,
     "Usage: kube-vxlan-controller~n"
     "           --server=<Kubernetes API server>~n"
@@ -21,14 +19,9 @@
 -define(Version, "Version ~s (git-~s)~n").
 
 usage() -> ?Usage.
+version({Vsn, GitSha}) -> lists:flatten(io_lib:format(?Version, [Vsn, GitSha])).
 
-version({Vsn, GitSha}) ->
-    lists:flatten(io_lib:format(?Version, [Vsn, GitSha])).
-
-read_args(["version"]) ->
-    {ok, Vsn} = application:get_key(?App, vsn),
-    {ok, GitSha} = application:get_env(?App, git_sha),
-    {ok, {version, {Vsn, GitSha}}};
+read_args(["version"]) -> {ok, version};
 
 read_args(Args) ->
     {ok, {run, lists:foldl(fun read_arg/2, #{}, Args)}}.
