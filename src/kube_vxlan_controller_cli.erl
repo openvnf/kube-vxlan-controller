@@ -48,8 +48,8 @@ read_args(Args) ->
 
 read_arg("--" ++ NamedArg, {Named, Ordered}) ->
     case string:split(NamedArg, "=") of
-        [Key, Value] -> {maps:put(arg_name(Key), Value, Named), Ordered};
-        Key -> {maps:put(arg_name(Key), "", Named), Ordered}
+        [Name] -> {add_arg(arg_name(Name), "", Named), Ordered};
+        [Name, Value] -> {add_arg(arg_name(Name), Value, Named), Ordered}
     end;
 
 read_arg([$-|Switches], {Named, Ordered}) ->
@@ -58,8 +58,21 @@ read_arg([$-|Switches], {Named, Ordered}) ->
 read_arg(Arg, {Named, Ordered}) ->
     {Named, [Arg|Ordered]}.
 
+add_arg(Name, NewValue, Named) ->
+    case maps:find(Name, Named) of
+        {ok, Value = [H|_]} when is_number(H) ->
+            maps:put(Name, [NewValue, Value], Named);
+        {ok, Values = [H|_]} when is_list(H) ->
+            maps:put(Name, [NewValue|Values], Named);
+        error -> maps:put(Name, NewValue, Named)
+    end.
+
 add_switch(Switch, Named) ->
-    maps:put(list_to_atom([Switch]), true, Named).
+    Name = switch_name(Switch),
+    maps:put(Name, maps:get(Name, Named, 0) + 1, Named).
 
 arg_name(Key) ->
     list_to_atom(lists:flatten(string:replace(Key, "-", "_", all))).
+
+switch_name(Switch) ->
+    list_to_atom([Switch]).
