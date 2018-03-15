@@ -1,6 +1,6 @@
 -module('kube-vxlan-controller').
 
--export([main/1, run/2, config/0]).
+-export([main/1]).
 
 -define(Db, kube_vxlan_controller_db).
 -define(K8s, kube_vxlan_controller_k8s).
@@ -13,70 +13,31 @@
 -define(Config, kube_vxlan_controller_config).
 -define(Inspect, kube_vxlan_controller_inspect).
 
--define(Server, "https://api.k8s.nce-01.fra-01.eu.cennso.net").
--define(NamespaceFile, "pki/namespace").
--define(CaCertFile, "pki/ca.pem").
--define(TokenFile, "pki/token").
-
--define(VxlanConfigName, "kube-vxlan-controller").
--define(AgentContainerName, "vxlan-controller-agent").
-
--define(LabelSelector, "vxlan-test.travelping.com=true").
-
--define(A8nVxlanNames, 'vxlan-test.travelping.com/networks').
 -define(A8nVxlanNamesSep, ", \n").
 
--define(MandatoryConfigParams, [
-    server,
-    namespace,
-    ca_cert_file,
-    token,
-    selector,
-    annotation,
-    vxlan_config_name,
-    agent_container_name,
-    agent_init_container_name
-]).
-
-main(Args) ->
+main(CliArgs) ->
     application:ensure_all_started(?MODULE),
-    case ?Cli:read_args(Args) of
-        {ok, {run, {_CmdArgs, Config}}} -> run(Config);
-        {ok, {inspect, Subject, {CmdArgs, Config}}} ->
-            inspect(CmdArgs, Subject, Config);
-        {ok, version} -> show_version();
-        {ok, usage} -> show_usage()
+    case ?Cli:args(CliArgs) of
+        {run, Args} -> do(run, Args);
+        {inspect, Subject, Args} -> do({inspect, Subject}, Args);
+        version -> io:format(?Cli:version(?Config:version()));
+        usage -> io:format(?Cli:usage())
     end.
 
-show_version() -> io:format(?Cli:version(?Config:version())).
-show_usage() -> io:format(?Cli:usage()).
-
-config() -> #{
-    server => ?Server,
-    namespace => binary_to_list(element(2, file:read_file(?NamespaceFile))),
-    ca_cert_file => ?CaCertFile,
-    token => binary_to_list(element(2, file:read_file(?TokenFile))),
-    selector => ?LabelSelector,
-    annotation => ?A8nVxlanNames,
-    vxlan_config_name => ?VxlanConfigName,
-    agent_container_name => ?AgentContainerName
-}.
-
-is_config_valid(Config) ->
-    maps:size(maps:with(?MandatoryConfigParams, Config)) ==
-    length(?MandatoryConfigParams).
-
-run(Config) ->
-    case is_config_valid(Config) of
-        true -> run(Config, #{});
-        false -> show_usage()
+do(Action, {NamedArgs, OrderedArgs}) ->
+    case load_config(NamedArgs) of
+        {ok, Config} -> do(Action, OrderedArgs, Config);
+        {error, Reason} -> io:format("~p~n", [Reason])
     end.
 
-inspect(Subject, Args, Config) ->
-    case is_config_valid(Config) of
-        true -> ?Inspect:Subject(Args, Config);
-        false -> show_usage()
-    end.
+do(run, _Args, Config) -> run(Config, #{});
+do({inspect, Subject}, Args, Config) -> ?Inspect:Subject(Args, Config).
+
+load_config(Args) -> cpf_funs:apply_while([
+    {load, fun ?Config:load/1, [Args]},
+    {build, fun ?Config:build/1, [{load}]},
+    {validate, fun ?Config:validate/1, [{build}]}
+]).
 
 run(Config, State) ->
     ResourceVersion = ?State:resource_version(State),

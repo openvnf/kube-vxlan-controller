@@ -46,14 +46,7 @@ spec:
         image: aialferov/kube-vxlan-controller:latest
         args:
         - run
-        - --server=https://kubernetes.default
-        - --namespace-file=/var/run/secrets/kubernetes.io/serviceaccount/namespace
-        - --ca-cert-file=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        - --token-file=/var/run/secrets/kubernetes.io/serviceaccount/token
         - --selector=vxlan=true
         - --annotation=vxlan.travelping.com/names
-        - --vxlan-config-name=kube-vxlan-controller
-        - --agent-container-name=vxlan-controller-agent
-        - --agent-init-container-name=vxlan-controller-agent-init
       serviceAccount: kube-vxlan-controller
       serviceAccountName: kube-vxlan-controller

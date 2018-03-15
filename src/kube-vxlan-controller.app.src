@@ -3,5 +3,16 @@
     {id, "kube-vxlan-controller"},
     {vsn, "0.4.0"},
     {modules, []},
-    {applications, [kernel, stdlib, hackney]}
+    {applications, [kernel, stdlib, hackney]},
+    {env, [
+        {server, "https://kubernetes.default"},
+        {namespace_file, "/var/run/secrets/kubernetes.io/serviceaccount/namespace"},
+        {ca_cert_file, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"},
+        {token_file, "/var/run/secrets/kubernetes.io/serviceaccount/token"},
+        {selector, "vxlan.default=true"},
+        {annotation, "vxlan.default/networks"},
+        {configmap_name, "kube-vxlan-controller"},
+        {agent_container_name, "vxlan-controller-agent"},
+        {agent_init_container_name, "vxlan-controller-agent-init"}
+    ]}
 ]}.

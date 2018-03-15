@@ -6,7 +6,7 @@
 
 -define(K8s, kube_vxlan_controller_k8s).
 
-vxlan_ids(Config = #{namespace := Namespace, vxlan_config_name := Name}) ->
+vxlan_ids(Config = #{namespace := Namespace, configmap_name := Name}) ->
     Resource = "/api/v1/namespaces/" ++ Namespace ++ "/configmaps/" ++ Name,
     {ok, [#{data := Data}]} = ?K8s:http_request(Resource, [], Config),
 

@@ -1,14 +1,15 @@
 -module(kube_vxlan_controller_cli).
 
 -export([
+    args/1,
+
     usage/0,
-    version/1,
-    read_args/1
+    version/1
 ]).
 
 -define(Usage,
-    "Usage: kube-vxlan-controller run <Options>~n"
-    "       kube-vxlan-controller inspect <Subject> <Options>~n"
+    "Usage: kube-vxlan-controller run [Options]~n"
+    "       kube-vxlan-controller inspect <Subject> [Options]~n"
     "       kube-vxlan-controller version~n"
     "~n"
     "Subject~n"
@@ -16,56 +17,49 @@
     "~n"
     "Options~n"
     "       --server=<Kubernetes API server>~n"
-    "       --namespace-file=<filepath>~n"
     "       --ca-cert-file=<filepath>~n"
+    "       --token=<token>~n"
     "       --token-file=<filepath>~n"
+    "       --namespace=<namespace>~n"
+    "       --namespace-file=<filepath>~n"
     "       --selector=<label selector>~n"
     "       --annotation=<network list annotation>~n"
-    "       --vxlan-config-name=<vxlan config map name>~n"
+    "       --configmap-name=<data configmap name>~n"
     "       --agent-container-name=<name>~n"
     "       --agent-init-container-name=<name>~n"
 ).
 
 -define(Version, "Version ~s (git-~s)~n").
 
+args(AllArgs) -> case AllArgs of
+    ["run"|Args] -> {run, read_args(Args)};
+    ["inspect", Subject|Args] ->
+        {inspect, list_to_atom(Subject), read_args(Args)};
+    ["version"] -> version;
+    _Other -> usage
+end.
+
 usage() -> ?Usage.
 version({Vsn, GitSha}) -> lists:flatten(io_lib:format(?Version, [Vsn, GitSha])).
 
-read_args(["run"|Args]) ->
-    {ok, {run, read_cmd_args(Args)}};
+read_args(Args) ->
+    {Named, Ordered} = lists:foldl(fun read_arg/2, {#{}, []}, Args),
+    {Named, lists:reverse(Ordered)}.
 
-read_args(["inspect", Subject|Args]) ->
-    {ok, {inspect, list_to_atom(Subject), read_cmd_args(Args)}};
-
-read_args(["version"]) -> {ok, version};
-read_args(_Other) -> {ok, usage}.
-
-read_cmd_args(Args) ->
-    {CmdArgs, Config} = lists:foldl(fun read_arg/2, {[], #{}}, Args),
-    {lists:reverse(CmdArgs), Config}.
-
-read_arg("--" ++ Arg, {Args, Config}) ->
-    case string:split(Arg, "=") of
-        [Key, Value] -> {Args, read_arg(Key, Value, Config)};
-        _Other -> {Args, Config}
+read_arg("--" ++ NamedArg, {Named, Ordered}) ->
+    case string:split(NamedArg, "=") of
+        [Key, Value] -> {maps:put(arg_name(Key), Value, Named), Ordered};
+        Key -> {maps:put(arg_name(Key), "", Named), Ordered}
     end;
 
-read_arg(Arg, {Args, Config}) -> {[Arg|Args], Config}.
+read_arg([$-|Switches], {Named, Ordered}) ->
+    {lists:foldl(fun add_switch/2, Named, Switches), Ordered};
 
-read_arg(RawKey, Value, Config) when is_list(RawKey) ->
-    Key = list_to_atom(lists:flatten(string:replace(RawKey, "-", "_", all))),
-    read_arg(Key, Value, Config);
+read_arg(Arg, {Named, Ordered}) ->
+    {Named, [Arg|Ordered]}.
 
-read_arg(namespace_file, Value, Config) ->
-    read_arg(namespace, read_file(Value), Config);
+add_switch(Switch, Named) ->
+    maps:put(list_to_atom([Switch]), true, Named).
 
-read_arg(token_file, Value, Config) ->
-    read_arg(token, read_file(Value), Config);
-
-read_arg(Key = annotation, Value, Config) ->
-    maps:put(Key, list_to_atom(Value), Config);
-
-read_arg(Key, Value, Config) -> maps:put(Key, Value, Config).
-
-read_file(FileName) ->
-    binary_to_list(element(2, file:read_file(FileName))).
+arg_name(Key) ->
+    list_to_atom(lists:flatten(string:replace(Key, "-", "_", all))).
