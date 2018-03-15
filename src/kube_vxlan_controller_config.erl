@@ -60,7 +60,10 @@ build(namespace, Config) -> build_from_file(namespace, Config).
 
 validate(Config) -> {ok, Config}.
 
-unsource(Config) -> maps:map(fun(_Key, {Value, _Source}) -> Value end, Config).
+unsource(Config) -> maps:map(fun
+    (_Key, {Value, _Source}) -> Value;
+    (_Key, Value) -> Value
+end, Config).
 
 build_from_file(Key, Config) ->
     FileKey = list_to_atom(atom_to_list(Key) ++ "_file"),

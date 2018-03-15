@@ -35,9 +35,14 @@ do({inspect, Subject}, Args, Config) -> ?Inspect:Subject(Args, Config).
 
 load_config(Args) -> cpf_funs:apply_while([
     {load, fun ?Config:load/1, [Args]},
-    {build, fun ?Config:build/1, [{load}]},
+    {load_log, fun load_config_log/1, [{load}]},
+    {build, fun ?Config:build/1, [{load_log}]},
     {validate, fun ?Config:validate/1, [{build}]}
 ]).
+
+load_config_log(Config) ->
+    maps:is_key(verbose, Config) andalso io:format("~p~n", [Config]),
+    Config.
 
 run(Config, State) ->
     ResourceVersion = ?State:resource_version(State),
