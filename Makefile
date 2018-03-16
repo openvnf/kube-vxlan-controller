@@ -54,10 +54,14 @@ docker-build: all
 	$(MAKE) install DEST_DIR=$(BUILD_DIR_IMAGE) PREFIX=
 	install -p -m 644 Dockerfile $(BUILD_DIR_IMAGE)
 	docker build $(BUILD_DIR_IMAGE) -t $(USER)/$(PROJECT):$(VERSION)
-	docker tag $(USER)/$(PROJECT):$(VERSION) $(USER)/$(PROJECT):latest
+	docker tag $(USER)/$(PROJECT):$(VERSION) $(USER)/$(PROJECT):edge
 
 docker-push:
 	docker push $(USER)/$(PROJECT):$(VERSION)
+	docker push $(USER)/$(PROJECT):edge
+
+docker-release:
+	docker tag $(USER)/$(PROJECT):$(VERSION) $(USER)/$(PROJECT):latest
 	docker push $(USER)/$(PROJECT):latest
 
 docker-run:
