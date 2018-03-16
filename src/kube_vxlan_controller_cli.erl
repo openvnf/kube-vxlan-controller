@@ -27,7 +27,6 @@
     "       --configmap-name=<data configmap name>~n"
     "       --agent-container-name=<name>~n"
     "       --agent-init-container-name=<name>~n"
-    "       --verbose~n"
 ).
 
 -define(Version, "Version ~s (git-~s)~n").

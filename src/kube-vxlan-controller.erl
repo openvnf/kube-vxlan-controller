@@ -17,7 +17,6 @@
 
 main(CliArgs) ->
     application:ensure_all_started(?MODULE),
-    ?Config:init(),
     case ?Cli:args(CliArgs) of
         {run, Args} -> do(run, Args);
         {inspect, Subject, Args} -> do({inspect, Subject}, Args);
@@ -26,6 +25,7 @@ main(CliArgs) ->
     end.
 
 do(Action, {NamedArgs, OrderedArgs}) ->
+    ?Config:init(),
     case load_config(NamedArgs) of
         {ok, Config} -> do(Action, OrderedArgs, Config);
         {error, Reason} -> io:format("~p~n", [Reason])
@@ -36,14 +36,9 @@ do({inspect, Subject}, Args, Config) -> ?Inspect:Subject(Args, Config).
 
 load_config(Args) -> cpf_funs:apply_while([
     {load, fun ?Config:load/1, [Args]},
-    {load_log, fun load_config_log/1, [{load}]},
-    {build, fun ?Config:build/1, [{load_log}]},
+    {build, fun ?Config:build/1, [{load}]},
     {validate, fun ?Config:validate/1, [{build}]}
 ]).
-
-load_config_log(Config) ->
-    maps:is_key(verbose, Config) andalso io:format("~p~n", [Config]),
-    Config.
 
 run(Config, State) ->
     ResourceVersion = ?State:resource_version(State),
