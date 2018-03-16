@@ -15,17 +15,6 @@ BIN_PATH_IN = $(shell $(REBAR) path --bin)
 BUILD_DIR = _build
 BUILD_DIR_IMAGE = $(BUILD_DIR)/image
 
-CONFIG = \
-	--server=https://api.k8s.nce-01.fra-01.eu.cennso.net \
-	--namespace-file=pki/namespace \
-	--ca-cert-file=pki/ca.pem \
-	--token-file=pki/token \
-	--selector=vxlan-test.travelping.com=true \
-	--annotation=vxlan-test.travelping.com/networks \
-	--vxlan-config-name=kube-vxlan-controller \
-	--agent-container-name=vxlan-controller-agent \
-	--agent-init-container-name=vxlan-controller-agent-init
-
 all:
 	$(REBAR) compile
 	$(REBAR) unlock
@@ -39,7 +28,7 @@ upgrade:
 	$(REBAR) unlock
 
 run:
-	$(BIN_PATH_IN)/$(PROJECT) run $(CONFIG)
+	$(BIN_PATH_IN)/$(PROJECT) run
 
 install:
 	mkdir -p $(BIN_PATH)
@@ -73,11 +62,11 @@ docker-push:
 
 docker-run:
 	docker run --name $(PROJECT) --rm -it -v ${PWD}/pki:/pki \
-		$(USER)/$(PROJECT):$(VERSION) run $(CONFIG)
+		$(USER)/$(PROJECT):$(VERSION) run
 
 docker-start:
 	docker run --name $(PROJECT) --rm -d -v ${PWD}/pki:/pki \
-		$(USER)/$(PROJECT):$(VERSION) $(PROJECT) $(CONFIG)
+		$(USER)/$(PROJECT):$(VERSION) run
 
 docker-stop:
 	docker stop $(PROJECT)

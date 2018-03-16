@@ -7,7 +7,8 @@
     {env, [
         {config_files, [
             "priv/kube-vxlan-controller.config",
-            "/etc/kube-vxlan-controller.config"
+            "$(HOME)/.config/kube-vxlan-controller/config",
+            "/etc/kube-vxlan-controller/config"
         ]},
         {server, "https://kubernetes.default"},
         {namespace_file, "/var/run/secrets/kubernetes.io/serviceaccount/namespace"},

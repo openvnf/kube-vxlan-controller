@@ -17,7 +17,7 @@
 
 main(CliArgs) ->
     application:ensure_all_started(?MODULE),
-    ?Config:load_env(),
+    ?Config:init(),
     case ?Cli:args(CliArgs) of
         {run, Args} -> do(run, Args);
         {inspect, Subject, Args} -> do({inspect, Subject}, Args);

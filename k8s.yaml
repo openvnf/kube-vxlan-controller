@@ -28,6 +28,18 @@ data:
   vxeth2: "102"
   vxeth3: "103"
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-vxlan-controller-config
+  namespace: kube-system
+data:
+  config: |
+    [{'kube-vxlan-controller', [
+       {selector, "vxlan"},
+       {annotation, "vxlan.travelping.com/names"}
+    ]}].
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -48,5 +60,12 @@ spec:
         - run
         - --selector=vxlan=true
         - --annotation=vxlan.travelping.com/names
+        volumeMounts:
+        - name: kube-vxlan-controller
+          mountPath: /etc/kube-vxlan-controller
+      volumes:
+      - name: kube-vxlan-controller
+        configMap:
+          name: kube-vxlan-controller-config
       serviceAccount: kube-vxlan-controller
       serviceAccountName: kube-vxlan-controller
