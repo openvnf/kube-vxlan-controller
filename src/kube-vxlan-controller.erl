@@ -20,9 +20,14 @@ main(CliArgs) ->
     case ?Cli:args(CliArgs) of
         {run, Args} -> do(run, Args);
         {inspect, Subject, Args} -> do({inspect, Subject}, Args);
+        {config, Args} -> do(config, Args);
         version -> io:format(?Cli:version(?Config:version()));
         usage -> io:format(?Cli:usage())
     end.
+
+do(config, {NamedArgs, _OrderedArgs}) ->
+    io:format("~p~n", [?Config:init()]),
+    io:format("~p~n", [?Config:load(NamedArgs)]);
 
 do(Action, {NamedArgs, OrderedArgs}) ->
     ?Config:init(),

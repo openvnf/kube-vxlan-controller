@@ -10,6 +10,7 @@
 -define(Usage,
     "Usage: kube-vxlan-controller run [Options]~n"
     "       kube-vxlan-controller inspect <Subject> [Options]~n"
+    "       kube-vxlan-controller config [Options]~n"
     "       kube-vxlan-controller version~n"
     "~n"
     "Subject~n"
@@ -35,6 +36,7 @@ args(AllArgs) -> case AllArgs of
     ["run"|Args] -> {run, read_args(Args)};
     ["inspect", Subject|Args] ->
         {inspect, list_to_atom(Subject), read_args(Args)};
+    ["config"|Args] -> {config, read_args(Args)};
     ["version"] -> version;
     _Other -> usage
 end.
