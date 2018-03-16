@@ -1,6 +1,8 @@
 -module(kube_vxlan_controller_config).
 
 -export([
+    load_env/0,
+
     load/1,
     build/1,
     validate/1,
@@ -25,6 +27,10 @@
     agent_container_name,
     agent_init_container_name
 ]).
+
+load_env() ->
+    {ok, ConfigFilePaths} = application:get_env(?App, config_files),
+    cpf_env:load(ConfigFilePaths).
 
 load(Args) -> lists:foldl(fun load_args/2, Args, ?ConfigKeys).
 
