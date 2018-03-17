@@ -30,6 +30,12 @@ upgrade:
 run:
 	$(BIN_PATH_IN)/$(PROJECT) run
 
+join:
+	erl \
+		-remsh $(PROJECT)@localhost \
+		-sname $(PROJECT)1@local \
+		-setcookie $(PROJECT)
+
 install:
 	mkdir -p $(BIN_PATH)
 	install -p $(BIN_PATH_IN)/$(PROJECT) $(BIN_PATH)
