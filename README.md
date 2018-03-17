@@ -1,20 +1,18 @@
 # Kube VXLAN Controller
 
-Any pod in a [Kubernetes](https://kubernetes.io) cluster can become a
-[VXLAN](https://tools.ietf.org/html/rfc7348) overlay network member by having a
-VXLAN type network interface set up and L2 peer forwarding entries specified.
-This can be done automatically on pod creation by using the
-Kube VXLAN Controller. A pod could be configured to have any number of VXLAN
+Any pod in a [Kubernetes] cluster can become a [VXLAN] overlay network member by
+having a VXLAN type network interface set up and L2 peer forwarding entries
+specified.  This can be done automatically on pod creation by using the Kube
+VXLAN Controller. A pod could be configured to have any number of VXLAN
 interfaces, i.e. to be a member of any number of VXLAN Segments.
 
 ## Deployment
 
-The controller monitors pods using the
-[Kubernetes API](https://kubernetes.io/docs/reference/api-overview) and could
-run as a standalone application provided with a desired cluster API access.
-But the most simple way is to run it as a part of the Kubernetes cluster itself,
-for example as a Kubernetes deployment. To deploy it this way execute the
-following command (from a root folder of this repository copy):
+The controller monitors pods using the [Kubernetes API] and could run as a
+standalone application provided with a desired cluster API access. But the most
+simple way is to run it as a part of the Kubernetes cluster itself, for example
+as a Kubernetes deployment. To deploy it this way execute the following command
+(from a root folder of this repository copy):
 
 ```
 $ kubectl apply -f k8s.yaml
@@ -73,11 +71,11 @@ set up in a pod. The network interface created in a pod will have a specified
 VXLAN name. In this example case two interfaces "vxeth0" and "vxeth1" will be
 created.
 
-According to [VXLAN specification](https://tools.ietf.org/html/rfc7348#section-4)
-during the setup process a VXLAN should be provided with a Segment ID or
-"VXLAN Network Identifier (VNI)". The controller does that automatically using
-the predefined Kubernetes configmap object that should exist by the time of
-creation a VXLAN. The configmap describes relation of a VXLAN name to its VNI.
+According to [VXLAN specification] during the setup process a VXLAN should be
+provided with a Segment ID or "VXLAN Network Identifier (VNI)". The controller
+does that automatically using the predefined Kubernetes configmap object that
+should exist by the time of creation a VXLAN. The configmap describes relation
+of a VXLAN name to its VNI.
 
 The manifest used in the "Deployment" section defines a configmap with initial
 set of VXLAN name to VNI relations and could be edited using this command:
@@ -90,27 +88,34 @@ To add or remove a relation the "data" section needs to be changed only.
 
 ## Controller Workflow
 
-The Controller is subscribed to the pod events using the
-[Pod Watch API](https://v1-8.docs.kubernetes.io/docs/api-reference/v1.8/#watch-64).
-On the "Pod added" event the Controller is looking for the network list
-annotation and sets up VXLAN networks according to it using the Agent init
-container. Thus the other init containers available in a pod can already work
-with the interfaces. Once the interfaces are set up, the Controller sends a TERM
-signal to the main process of the Agent to let it terminate so that the pod
-could proceed with its creation.
+The Controller is subscribed to the pod events using the [Pod Watch API]. On the
+"Pod added" event the Controller is looking for the network list annotation and
+sets up VXLAN networks according to it using the Agent init container. Thus the
+other init containers available in a pod can already work with the interfaces.
+Once the interfaces are set up, the Controller sends a TERM signal to the main
+process of the Agent to let it terminate so that the pod could proceed with its
+creation.
 
 Once a pod is running the sidecar Agent container is used to configure fdb
 entries to set up configured networks peers forwarding. If added or removed pod
 is a member of a certain network, the Controller makes sure all the pods in
 this network get the fdb entries table updated.
 
-The controller uses the "Pod Exec API" to execute commands in a pod via
-[Agent](https://gitlab.tpip.net/aalferov/kube-vxlan-controller-agent) container.
+The controller uses the "Pod Exec API" to execute commands in a pod via [Agent]
+container.
 
 ## Troubleshooting
 
 If a pod is not becoming a VXLAN network member or hangs in the agent init
 container it is possible to check if the pod answers the membership
-requirements. This could be done automatically using the
-[scripts/check.sh](https://gitlab.tpip.net/aalferov/kube-vxlan-controller/raw/master/scripts/check.sh)
+requirements. This could be done automatically using the [scripts/check.sh]
 script of this repository.
+
+<!-- Links -->
+[Kubernetes]: https://kubernetes.io
+[Kubernetes API]: https://kubernetes.io/docs/reference/api-overview
+[Pod Watch API]: https://v1-8.docs.kubernetes.io/docs/api-reference/v1.8/#watch-64
+[VXLAN]: https://tools.ietf.org/html/rfc7348
+[VXLAN specification]: https://tools.ietf.org/html/rfc7348#section-4
+[Agent]: https://gitlab.tpip.net/aalferov/kube-vxlan-controller-agent
+[scripts/check.sh]: https://gitlab.tpip.net/aalferov/kube-vxlan-controller/raw/master/scripts/check.sh
