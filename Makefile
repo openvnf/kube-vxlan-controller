@@ -34,21 +34,17 @@ install:
 	mkdir -p $(BIN_PATH)
 	install -p $(BIN_PATH_IN)/$(PROJECT) $(BIN_PATH)
 
-install-check:
-	mkdir -p $(BIN_PATH)
-	install -p scripts/check.sh $(BIN_PATH)/$(PROJECT)-check
-
 uninstall:
 	rm -f $(BIN_PATH)/$(PROJECT)
-	rmdir -p $(BIN_PATH) 2> /dev/null || true
-
-uninstall-check:
-	rm -f $(BIN_PATH)/$(PROJECT)-check
 	rmdir -p $(BIN_PATH) 2> /dev/null || true
 
 clean:
 	$(REBAR) clean -a
 	$(REBAR) unlock
+
+git-release:
+	git tag -a v$(VERSION)
+	git push origin v$(VERSION)
 
 docker-build: all
 	$(MAKE) install DEST_DIR=$(BUILD_DIR_IMAGE) PREFIX=
