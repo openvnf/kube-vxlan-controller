@@ -96,7 +96,11 @@ process_event(pod_added, Pod = #{phase := "Pending"}, Config, State) ->
         false -> NewState
     end;
 
-process_event(pod_added, Pod = #{phase := "Running"}, Config, State) ->
+process_event(
+    pod_added,
+    Pod = #{phase := "Running", agent_ready := true},
+    Config, State
+) ->
     handle_pod_added(Pod, Config, State);
 
 process_event(pod_modified, Pod = #{phase := "Pending"}, Config, State) ->
@@ -105,7 +109,11 @@ process_event(pod_modified, Pod = #{phase := "Pending"}, Config, State) ->
         false -> State
     end;
 
-process_event(pod_modified, Pod = #{phase := "Running"}, Config, State) ->
+process_event(
+    pod_modified,
+    Pod = #{phase := "Running", agent_ready := true},
+    Config, State
+) ->
     case ?State:pod_pending_action(Pod, State) of
         {ok, add} ->
             NewState = ?State:unset_pod_pending(Pod, State),
@@ -155,16 +163,19 @@ read_event(#{
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
       vxlan_names => vxlan_names(Annotations, Config),
       phase => binary_to_list(Phase),
+      agent_ready => lists:any(
+          is_container_ready_fun(maps:get(agent_container_name, Config)),
+          maps:get(containerStatuses, Status, [])
+      ),
       init_agent_ready => lists:any(
-          is_init_agent_ready_fun(Config),
+          is_container_ready_fun(maps:get(agent_init_container_name, Config)),
           maps:get(initContainerStatuses, Status, [])
       )
     }
 }.
 
-is_init_agent_ready_fun(Config) -> fun(#{name := Name, state := State}) ->
-    binary_to_list(Name) == maps:get(agent_init_container_name, Config) andalso
-    maps:is_key(running, State)
+is_container_ready_fun(ContainerName) -> fun(#{name := Name, state := State}) ->
+    list_to_binary(ContainerName) == Name andalso maps:is_key(running, State)
 end.
 
 handle_pod_initialisation(#{
