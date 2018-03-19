@@ -13,7 +13,8 @@
 -define(Config, kube_vxlan_controller_config).
 -define(Inspect, kube_vxlan_controller_inspect).
 
--define(A8nVxlanNamesSep, ", \n").
+-define(NetworkType, "vxlan").
+-define(NetworkDev, "eth0").
 
 main(CliArgs) ->
     application:ensure_all_started(?MODULE),
@@ -161,7 +162,7 @@ read_event(#{
       pod_uid => binary_to_list(PodUid),
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-      vxlan_names => vxlan_names(Annotations, Config),
+      networks => networks(Annotations, Config),
       phase => binary_to_list(Phase),
       agent_ready => lists:any(
           is_container_ready_fun(maps:get(agent_container_name, Config)),
@@ -181,22 +182,23 @@ end.
 handle_pod_initialisation(#{
     namespace := Namespace,
     pod_name := PodName,
-    vxlan_names := VxlanNames
+    networks := Networks
 }, Config, State) ->
-    ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, VxlanNames}]),
+    ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, Networks}]),
 
-    {VxlanIds, NotFoundVxlanNames} = ?Db:vxlan_ids(VxlanNames, Config),
+    NetNames = [Name || {Name, _Network} <- Networks],
+    {NameIdMap, NotFoundNames} = ?Db:network_name_id_map(NetNames, Config),
 
-    NotFoundVxlanNames == [] orelse
+    NotFoundNames == [] orelse
         ?Log:warning("VXLAN Id for these networks not found: ~p",
-                     [NotFoundVxlanNames]),
+                     [NotFoundNames]),
 
     AgentConfig = maps:put(agent_container_name,
                   maps:get(agent_init_container_name, Config), Config),
 
-    maps:fold(fun(VxlanName, VxlanId, _) ->
-        ?Net:vxlan_init_pod(Namespace, PodName, VxlanName, VxlanId, AgentConfig)
-    end, ok, VxlanIds),
+    lists:foreach(fun({_NetName, Net}) ->
+        ?Net:pod_init(Namespace, PodName, Net, AgentConfig)
+    end, networks_set_ids(NameIdMap, Networks)),
 
     ?Agent:terminate(Namespace, PodName, AgentConfig),
 
@@ -206,20 +208,19 @@ handle_pod_added(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
-    vxlan_names := VxlanNames
+    networks := Networks
 }, Config, State) ->
-    ?Log:info("Pod added: ~p", [{Namespace, PodName, PodIp, VxlanNames}]),
+    ?Log:info("Pod added: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
+    NetNames = [Name || {Name, _Network} <- Networks],
 
-    lists:foreach(fun(VxlanName) ->
-        VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
+    lists:foreach(fun(NetName) ->
+        NetPods = network_members(NetName, PodName, Pods, Config),
         ?Log:info("Pods within \"~s\" to join:~n~s",
-                  [VxlanName, vxlan_members_format(VxlanPods)]),
-        ?Net:vxlan_add_pod(
-            Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
-        )
-    end, VxlanNames),
+                  [NetName, network_members_format(NetPods)]),
+        ?Net:pod_add(Namespace, PodName, PodIp, NetName, NetPods, Config)
+    end, NetNames),
 
     State.
 
@@ -227,30 +228,69 @@ handle_pod_deleted(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
-    vxlan_names := VxlanNames
+    networks := Networks
 }, Config, State) ->
-    ?Log:info("Pod deleted: ~p", [{Namespace, PodName, PodIp, VxlanNames}]),
+    ?Log:info("Pod deleted: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
+    NetNames = [Name || {Name, _Network} <- Networks],
 
-    lists:foreach(fun(VxlanName) ->
-        VxlanPods = vxlan_members(VxlanName, PodName, Pods, Config),
-        ?Log:info("Pods within \"~s\" to leave:~n~s",
-                  [VxlanName, vxlan_members_format(VxlanPods)]),
-        ?Net:vxlan_delete_pod(
-            Namespace, PodName, PodIp, VxlanName, VxlanPods, Config
-        )
-    end, VxlanNames),
+    lists:foreach(fun(NetName) ->
+        NetPods = network_members(NetName, PodName, Pods, Config),
+        ?Log:info("Pods within \"~s\" to join:~n~s",
+                  [NetName, network_members_format(NetPods)]),
+        ?Net:pod_delete(Namespace, PodName, PodIp, NetName, NetPods, Config)
+    end, NetNames),
 
     State.
 
-vxlan_members(VxlanName, ExcludePodName, Pods, Config) ->
+network_new(NetworkName) -> #{
+    name => NetworkName,
+    type => ?NetworkType,
+    dev => ?NetworkDev
+}.
+
+networks_set_ids(NameIdMap, Networks) ->
+    [{Name, case maps:is_key(id, Network) of
+        true -> Network;
+        false -> maps:put(id, maps:get(Name, NameIdMap), Network)
+    end} || {Name, Network} <- Networks].
+
+networks(Annotations, #{annotation := AnnotationName}) ->
+    AnnotationValue = maps:get(AnnotationName, Annotations, <<>>),
+    TokensBinary = re:replace(AnnotationValue, "\\h*,\\h*", ",", [global]),
+    Tokens = string:lexemes(TokensBinary, ",\n"),
+    lists:reverse(lists:foldl(fun networks_build/2, [], Tokens)).
+
+networks_build(Token = <<" ", _/binary>>, Networks) ->
+    networks_add_params(string:lexemes(Token, " "), Networks);
+
+networks_build(Token, Networks) ->
+    [NetworkNameBinary|NetworkParams] = string:lexemes(Token, " "),
+    NetworkName = binary_to_list(NetworkNameBinary),
+    Network = {NetworkName, network_new(NetworkName)},
+    networks_add_params(NetworkParams, [Network|Networks]).
+
+networks_add_params(Params, Networks) ->
+    lists:foldl(fun networks_add_param/2, Networks, Params).
+
+networks_add_param(Option, [{NetworkName, Network}|RestNetworks]) ->
+    [KeyBinary|ValueIolist] = string:split(Option, "="),
+    Key = binary_to_atom(KeyBinary, latin1),
+    Value = binary_to_list(iolist_to_binary(ValueIolist)),
+    [{NetworkName, maps:put(Key, Value, Network)}|RestNetworks].
+
+%vxlan_names(Annotations, #{annotation := Annotation}) ->
+%    A8nVxlanName = binary_to_list(maps:get(Annotation, Annotations, <<>>)),
+%    string:lexemes(A8nVxlanName, ", \n").
+
+network_members(NetworkName, ExcludePodName, Pods, Config) ->
     [{binary_to_list(Namespace),
-      binary_to_list(Name),
+      binary_to_list(PodName),
       binary_to_list(PodIp)} ||
      #{metadata := #{
          namespace := Namespace,
-         name := Name,
+         name := PodName,
          annotations := Annotations
       },
        status := #{
@@ -258,13 +298,9 @@ vxlan_members(VxlanName, ExcludePodName, Pods, Config) ->
          phase := <<"Running">>
        }
      } <- Pods,
-     lists:member(VxlanName, vxlan_names(Annotations, Config)) andalso
-     binary_to_list(Name) /= ExcludePodName].
+     lists:keymember(NetworkName, 1, networks(Annotations, Config)) andalso
+     binary_to_list(PodName) /= ExcludePodName].
 
-vxlan_names(Annotations, #{annotation := Annotation}) ->
-    VxlanNames = binary_to_list(maps:get(Annotation, Annotations, <<>>)),
-    string:lexemes(VxlanNames, ?A8nVxlanNamesSep).
-
-vxlan_members_format(Pods) ->
+network_members_format(Pods) ->
     lists:flatten(io_lib:format(
         lists:flatten(lists:duplicate(length(Pods), "~p~n")), Pods)).

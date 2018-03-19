@@ -29,8 +29,8 @@ To make a pod VXLAN enabled it should answer the following conditions:
 * run a Kube VXLAN Controller Agent sidecar container with the security context
 "NET_ADMIN" capability.
 
-A list of networks is a comma, space, new line (or any combination) separated
-values representing network name each.
+A list of networks is a comma or new line separated values representing network
+name each.
 
 These conditions could be described in a single manifest:
 
@@ -71,6 +71,8 @@ set up in a pod. The network interface created in a pod will have a specified
 VXLAN name. In this example case two interfaces "vxeth0" and "vxeth1" will be
 created.
 
+### VXLAN Network Identifier
+
 According to [VXLAN specification] during the setup process a VXLAN should be
 provided with a Segment ID or "VXLAN Network Identifier (VNI)". The controller
 does that automatically using the predefined Kubernetes configmap object that
@@ -86,19 +88,44 @@ $ kubectl -n kube-system edit configmap kube-vxlan-controller
 
 To add or remove a relation the "data" section needs to be changed only.
 
+### Network Configuration
+
+Networks could be customized with a set of parameters specified in annotation.
+The following parameters are supported:
+
+* type — network type (default: vxlan)
+* id — network identifier (default: according to the configmap)
+* name — network interface name (default: network name)
+* dev — device used to create a network (default: eth0)
+
+Examples:
+
+```
+anntations:
+  vxlan.travelping.com/networks: |
+    vxeth0
+      id=1001
+      dev=tun0
+    vxeth1
+```
+```
+anntations:
+  vxlan.travelping.com/networks: vxeth0 id=1001 dev=tun0, vxeth1
+```
+
 ## Controller Workflow
 
-The Controller is subscribed to the pod events using the [Pod Watch API]. On the
-"Pod added" event the Controller is looking for the network list annotation and
+The controller is subscribed to the pod events using the [Pod Watch API]. On the
+"Pod added" event the controller is looking for the network list annotation and
 sets up VXLAN networks according to it using the Agent init container. Thus the
 other init containers available in a pod can already work with the interfaces.
-Once the interfaces are set up, the Controller sends a TERM signal to the main
+Once the interfaces are set up, the controller sends a TERM signal to the main
 process of the Agent to let it terminate so that the pod could proceed with its
 creation.
 
 Once a pod is running the sidecar Agent container is used to configure fdb
 entries to set up configured networks peers forwarding. If added or removed pod
-is a member of a certain network, the Controller makes sure all the pods in
+is a member of a certain network, the controller makes sure all the pods in
 this network get the fdb entries table updated.
 
 The controller uses the "Pod Exec API" to execute commands in a pod via [Agent]
