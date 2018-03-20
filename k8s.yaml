@@ -36,8 +36,8 @@ metadata:
 data:
   config: |
     [{'kube-vxlan-controller', [
-       {selector, "vxlan.travelping.com"},
-       {annotation, "vxlan.travelping.com/networks"}
+        {selector, "vxlan.travelping.com"},
+        {annotation, "vxlan.travelping.com/networks"}
     ]}].
 ---
 apiVersion: extensions/v1beta1
@@ -55,14 +55,14 @@ spec:
     spec:
       containers:
       - name: kube-vxlan-controller
-        image: aialferov/kube-vxlan-controller:latest
+        image: aialferov/kube-vxlan-controller:edge
         args:
         - run
         volumeMounts:
-        - name: kube-vxlan-controller
+        - name: kube-vxlan-controller-config
           mountPath: /etc/kube-vxlan-controller
       volumes:
-      - name: kube-vxlan-controller
+      - name: kube-vxlan-controller-config
         configMap:
           name: kube-vxlan-controller-config
       serviceAccount: kube-vxlan-controller
