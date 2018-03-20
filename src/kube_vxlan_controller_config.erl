@@ -27,7 +27,8 @@
     annotation,
     configmap_name,
     agent_container_name,
-    agent_init_container_name
+    agent_init_container_name,
+    db_file
 ]).
 
 load() -> load(#{}).

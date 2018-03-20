@@ -42,9 +42,12 @@ set_resource_version(#{resource_version := Value}, State) ->
         true ->
             NewValue = integer_to_list(ProposedValue + 1),
             NewState = set_resource_version_unshown(State),
-            maps:put(resource_version, NewValue, NewState);
+            set_resource_version(NewValue, NewState);
         false -> State
-    end.
+    end;
+
+set_resource_version(Version, State) ->
+    maps:put(resource_version, Version, State).
 
 is_resource_version_shown(State) ->
     maps:get(resource_version_shown, State, false).

@@ -10,11 +10,12 @@
             "$(HOME)/.config/kube-vxlan-controller/config",
             "/etc/kube-vxlan-controller/config"
         ]},
+        {db_file, "kube-vxlan-controller.db"},
         {server, "https://kubernetes.default"},
         {namespace_file, "/var/run/secrets/kubernetes.io/serviceaccount/namespace"},
         {ca_cert_file, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"},
         {token_file, "/var/run/secrets/kubernetes.io/serviceaccount/token"},
-        {selector, "vxlan.default=true"},
+        {selector, "vxlan.default"},
         {annotation, "vxlan.default/networks"},
         {configmap_name, "kube-vxlan-controller"},
         {agent_container_name, "vxlan-controller-agent"},

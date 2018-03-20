@@ -25,9 +25,10 @@
     "       --namespace-file=<filepath>~n"
     "       --selector=<label selector>~n"
     "       --annotation=<network list annotation>~n"
-    "       --configmap-name=<data configmap name>~n"
+    "       --configmap-name=<network data configmap name>~n"
     "       --agent-container-name=<name>~n"
     "       --agent-init-container-name=<name>~n"
+    "       --db-file=<db file path>~n"
 ).
 
 -define(Version, "Version ~s (git-~s)~n").

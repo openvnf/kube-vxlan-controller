@@ -36,8 +36,15 @@ do(Action, {NamedArgs, OrderedArgs}) ->
         {error, Reason} -> io:format("~p~n", [Reason])
     end.
 
-do(run, _Args, Config) -> run(Config, #{});
-do({inspect, Subject}, Args, Config) -> ?Inspect:Subject(Args, Config).
+do(run, _Args, Config) ->
+    Selector = maps:get(selector, Config),
+    ResourceVersion = ?Db:load_resource_version(Selector, Config),
+    State = ?State:set_resource_version(ResourceVersion, #{}),
+
+    run(Config, State);
+
+do({inspect, Subject}, Args, Config) ->
+    ?Inspect:Subject(Args, Config).
 
 run(Config, State) ->
     ResourceVersion = ?State:resource_version(State),
@@ -48,6 +55,7 @@ run(Config, State) ->
         false ->
             ?Log:info("Watching pods (selector: ~s) from version: ~s",
                       [Selector, ResourceVersion]),
+            ?Db:save_resource_version(Selector, ResourceVersion, Config),
             ?State:set_resource_version_shown(State)
     end,
 

@@ -36,6 +36,7 @@ metadata:
 data:
   config: |
     [{'kube-vxlan-controller', [
+        {db_file, "/usr/share/kube-vxlan-controller/db"},
         {selector, "vxlan.travelping.com"},
         {annotation, "vxlan.travelping.com/networks"}
     ]}].
@@ -55,15 +56,19 @@ spec:
     spec:
       containers:
       - name: kube-vxlan-controller
-        image: aialferov/kube-vxlan-controller:edge
+        image: aialferov/kube-vxlan-controller:latest
         args:
         - run
         volumeMounts:
         - name: kube-vxlan-controller-config
           mountPath: /etc/kube-vxlan-controller
+        - name: kube-vxlan-controller-db
+          mountPath: /usr/share/kube-vxlan-controller
       volumes:
       - name: kube-vxlan-controller-config
         configMap:
           name: kube-vxlan-controller-config
+      - name: kube-vxlan-controller-db
+        emptyDir: {}
       serviceAccount: kube-vxlan-controller
       serviceAccountName: kube-vxlan-controller
