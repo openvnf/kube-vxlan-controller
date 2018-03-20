@@ -28,23 +28,16 @@ main(CliArgs) ->
 
 do(config, {NamedArgs, _OrderedArgs}) ->
     io:format("~p~n", [?Config:init()]),
-    io:format("~p~n", [?Config:load(NamedArgs)]);
+    io:format("~p~n", [?Config:read(NamedArgs)]);
 
 do(Action, {NamedArgs, OrderedArgs}) ->
-    ?Config:init(),
-    case load_config(NamedArgs) of
+    case ?Config:load(NamedArgs) of
         {ok, Config} -> do(Action, OrderedArgs, Config);
         {error, Reason} -> io:format("~p~n", [Reason])
     end.
 
 do(run, _Args, Config) -> run(Config, #{});
 do({inspect, Subject}, Args, Config) -> ?Inspect:Subject(Args, Config).
-
-load_config(Args) -> cpf_funs:apply_while([
-    {load, fun ?Config:load/1, [Args]},
-    {build, fun ?Config:build/1, [{load}]},
-    {validate, fun ?Config:validate/1, [{build}]}
-]).
 
 run(Config, State) ->
     ResourceVersion = ?State:resource_version(State),

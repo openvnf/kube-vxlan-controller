@@ -1,9 +1,11 @@
 -module(kube_vxlan_controller_config).
 
 -export([
+    load/0, load/1,
+
     init/0,
 
-    load/1,
+    read/1,
     build/1,
     validate/1,
 
@@ -28,23 +30,31 @@
     agent_init_container_name
 ]).
 
+load() -> load(#{}).
+load(Args) -> cpf_funs:apply_while([
+    {init, fun init/0, []},
+    {read, fun read/1, [Args]},
+    {build, fun build/1, [{read}]},
+    {validate, fun validate/1, [{build}]}
+]).
+
 init() -> cpf_env:load(application:get_env(?App, config_files, [])).
 
-load(Args) -> lists:foldl(fun load_args/2, Args, ?ConfigKeys).
+read(Args) -> lists:foldl(fun read_args/2, Args, ?ConfigKeys).
 
-load_args(Key, Config) ->
+read_args(Key, Config) ->
     case maps:find(Key, Config) of
         {ok, Value} -> maps:put(Key, {Value, arg}, Config);
-        error -> load_env(Key, Config)
+        error -> read_env(Key, Config)
     end.
 
-load_env(Key, Config) ->
+read_env(Key, Config) ->
     case os:getenv(?OsEnvPrefix ++ string:uppercase(atom_to_list(Key))) of
         Value when is_list(Value) -> maps:put(Key, {Value, env}, Config);
-        false -> load_cfg(Key, Config)
+        false -> read_cfg(Key, Config)
     end.
 
-load_cfg(Key, Config) ->
+read_cfg(Key, Config) ->
     case application:get_env(?App, Key) of
         {ok, Value} -> maps:put(Key, {Value, cfg}, Config);
         undefined -> Config
