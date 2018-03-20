@@ -22,18 +22,18 @@
 
 pod_init(Namespace, PodName, Net, Config) ->
     link_add(Namespace, PodName, Net, Config),
-    link_up(Namespace, PodName, maps:get(name, Net), Config).
+    link_up(Namespace, PodName, Net, Config).
 
-pod_add(Namespace, PodName, PodIp, NetName, NetPods, Config) ->
-    lists:foreach(fun({NetPodNamespace, NetPodName, NetPodIp}) ->
-        bridge_append(NetPodNamespace, NetPodName, NetName, PodIp, Config),
-        bridge_append(Namespace, PodName, NetName, NetPodIp, Config)
+pod_add(Namespace, PodName, PodIp, Net, NetPods, Config) ->
+    lists:foreach(fun({NetPodNamespace, NetPodName, NetPodIp, NetPodNet}) ->
+        bridge_append(NetPodNamespace, NetPodName, NetPodNet, PodIp, Config),
+        bridge_append(Namespace, PodName, Net, NetPodIp, Config)
     end, NetPods).
 
-pod_delete(Namespace, PodName, PodIp, NetName, NetPods, Config) ->
-    lists:foreach(fun({NetPodNamespace, NetPodName, NetPodIp}) ->
-        bridge_delete(Namespace, PodName, NetName, NetPodIp, Config),
-        bridge_delete(NetPodNamespace, NetPodName, NetName, PodIp, Config)
+pod_delete(Namespace, PodName, PodIp, Net, NetPods, Config) ->
+    lists:foreach(fun({NetPodNamespace, NetPodName, NetPodIp, NetPodNet}) ->
+        bridge_delete(Namespace, PodName, Net, NetPodIp, Config),
+        bridge_delete(NetPodNamespace, NetPodName, NetPodNet, PodIp, Config)
     end, NetPods).
 
 link_add(Namespace, PodName, Net, Config) ->
@@ -45,43 +45,44 @@ link_add(Namespace, PodName, Net, Config) ->
 
     ?Agent:exec(Namespace, PodName, Command, Config).
 
-link_delete(Namespace, PodName, NetName, Config) ->
-    Command = "ip link delete " ++ NetName,
+link_delete(Namespace, PodName, Net, Config) ->
+    Command = "ip link delete " ++ maps:get(name, Net),
     ?Agent:exec(Namespace, PodName, Command, Config).
 
-link_up(Namespace, PodName, NetName, Config) ->
-    Command = "ip link set " ++ NetName ++ " up",
+link_up(Namespace, PodName, Net, Config) ->
+    Command = "ip link set " ++ maps:get(name, Net) ++ " up",
     ?Agent:exec(Namespace, PodName, Command, Config).
 
-link_down(Namespace, PodName, NetName, Config) ->
-    Command = "ip link set " ++ NetName ++ " down",
+link_down(Namespace, PodName, Net, Config) ->
+    Command = "ip link set " ++ maps:get(name, Net) ++ " down",
     ?Agent:exec(Namespace, PodName, Command, Config).
 
-bridge_append(Namespace, PodName, NetName, TargetIp, Config) ->
-    BridgeExists =
-        bridge_macs(Namespace, PodName, NetName, TargetIp, Config) /= [],
+bridge_append(Namespace, PodName, Net, TargetIp, Config) ->
+    BridgeExists = bridge_macs(Namespace, PodName, Net, TargetIp, Config) /= [],
     BridgeExists orelse begin
-        Command = "bridge fdb append to 00:00:00:00:00:00 " ++
-                  "dst " ++ TargetIp ++ " dev " ++ NetName,
+        Command = "bridge fdb append to 00:00:00:00:00:00" ++
+                  " dst " ++ TargetIp ++
+                  " dev " ++ maps:get(name, Net),
         ?Agent:exec(Namespace, PodName, Command, Config)
     end.
 
-bridge_delete(Namespace, PodName, NetName, TargetIp, Config) ->
+bridge_delete(Namespace, PodName, Net, TargetIp, Config) ->
     lists:foreach(fun(Mac) ->
-        Command = "bridge fdb delete " ++ Mac ++ " " ++
-                  "dst " ++ TargetIp ++ " dev " ++ NetName,
+        Command = "bridge fdb delete " ++ Mac ++
+                  " dst " ++ TargetIp ++
+                  " dev " ++ maps:get(name, Net),
         ?Agent:exec(Namespace, PodName, Command, Config)
-    end, bridge_macs(Namespace, PodName, NetName, TargetIp, Config)).
+    end, bridge_macs(Namespace, PodName, Net, TargetIp, Config)).
 
-bridge_macs(Namespace, PodName, NetName, TargetIp, Config) ->
-    Command = "bridge fdb show dev " ++ NetName,
+bridge_macs(Namespace, PodName, Net, TargetIp, Config) ->
+    Command = "bridge fdb show dev " ++ maps:get(name, Net),
     Result = ?Agent:exec(Namespace, PodName, Command, Config),
     [Mac || FdbRecord <- string:lexemes(Result, "\n"),
             [Mac, "dst", Ip|_ ] <- [string:lexemes(FdbRecord, " ")],
             Ip == TargetIp].
 
-vxlan_id(Namespace, PodName, NetName, Config) ->
-    Command = "ip -d link show " ++ NetName,
+vxlan_id(Namespace, PodName, Net, Config) ->
+    Command = "ip -d link show " ++ maps:get(name, Net),
     Result = ?Agent:exec(Namespace, PodName, Command, Config),
 
     case string:lexemes(hd(lists:reverse(string:lexemes(Result, "\n"))), " ") of

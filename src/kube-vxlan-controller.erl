@@ -214,14 +214,13 @@ handle_pod_added(#{
     ?Log:info("Pod added: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
-    NetNames = [Name || {Name, _Network} <- Networks],
 
-    lists:foreach(fun(NetName) ->
+    lists:foreach(fun({NetName, Net}) ->
         NetPods = network_members(NetName, PodName, Pods, Config),
         ?Log:info("Pods within \"~s\" to join:~n~s",
                   [NetName, network_members_format(NetPods)]),
-        ?Net:pod_add(Namespace, PodName, PodIp, NetName, NetPods, Config)
-    end, NetNames),
+        ?Net:pod_add(Namespace, PodName, PodIp, Net, NetPods, Config)
+    end, Networks),
 
     State.
 
@@ -234,14 +233,13 @@ handle_pod_deleted(#{
     ?Log:info("Pod deleted: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
-    NetNames = [Name || {Name, _Network} <- Networks],
 
-    lists:foreach(fun(NetName) ->
+    lists:foreach(fun({NetName, Net}) ->
         NetPods = network_members(NetName, PodName, Pods, Config),
-        ?Log:info("Pods within \"~s\" to join:~n~s",
+        ?Log:info("Pods within \"~s\" to leave:~n~s",
                   [NetName, network_members_format(NetPods)]),
-        ?Net:pod_delete(Namespace, PodName, PodIp, NetName, NetPods, Config)
-    end, NetNames),
+        ?Net:pod_delete(Namespace, PodName, PodIp, Net, NetPods, Config)
+    end, Networks),
 
     State.
 
@@ -288,7 +286,8 @@ networks_add_param(Option, [{NetworkName, Network}|RestNetworks]) ->
 network_members(NetworkName, ExcludePodName, Pods, Config) ->
     [{binary_to_list(Namespace),
       binary_to_list(PodName),
-      binary_to_list(PodIp)} ||
+      binary_to_list(PodIp),
+      proplists:get_value(NetworkName, Networks)} ||
      #{metadata := #{
          namespace := Namespace,
          name := PodName,
@@ -298,8 +297,8 @@ network_members(NetworkName, ExcludePodName, Pods, Config) ->
          podIP := PodIp,
          phase := <<"Running">>
        }
-     } <- Pods,
-     lists:keymember(NetworkName, 1, networks(Annotations, Config)) andalso
+     } <- Pods, Networks <- [networks(Annotations, Config)],
+     lists:keymember(NetworkName, 1, Networks) andalso
      binary_to_list(PodName) /= ExcludePodName].
 
 network_members_format(Pods) ->
