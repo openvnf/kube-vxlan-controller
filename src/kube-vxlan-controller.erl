@@ -253,7 +253,7 @@ networks_set_ids(NameIdMap, Networks) ->
     [{Name, case maps:is_key(id, Network) of
         true -> Network;
         false -> maps:put(id, maps:get(Name, NameIdMap), Network)
-    end} || {Name, Network} <- Networks].
+    end} || {Name, Network} <- Networks, maps:is_key(Name, NameIdMap)].
 
 networks(Annotations, #{annotation := AnnotationName}) ->
     AnnotationValue = maps:get(AnnotationName, Annotations, <<>>),
