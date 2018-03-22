@@ -4,8 +4,8 @@
     load_resource_version/2,
     save_resource_version/3,
 
-    network_name_id_map/2,
-    network_name_id_map/1
+    networks_name_id_map/2,
+    networks_name_id_map/1
 ]).
 
 -define(K8s, kube_vxlan_controller_k8s).
@@ -18,11 +18,11 @@ save_resource_version(Selector, Version, Config) ->
     NewData = maps_put_sub(resource_versions, Selector, Version, Data),
     save_config(NewData, Config).
 
-network_name_id_map(Names, Config) ->
-    NameIdMap = maps:with(Names, network_name_id_map(Config)),
+networks_name_id_map(Names, Config) ->
+    NameIdMap = maps:with(Names, networks_name_id_map(Config)),
     {NameIdMap, [Name || Name <- Names, not maps:is_key(Name, NameIdMap)]}.
 
-network_name_id_map(
+networks_name_id_map(
     Config = #{namespace := Namespace,
                configmap_name := ConfigMapName}
 ) ->

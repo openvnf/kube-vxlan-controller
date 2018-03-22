@@ -163,7 +163,7 @@ read_event(#{
       pod_uid => binary_to_list(PodUid),
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-      networks => networks(Annotations, Config),
+      networks_data => networks_data(Annotations, Config),
       phase => binary_to_list(Phase),
       agent_ready => lists:any(
           is_container_ready_fun(maps:get(agent_container_name, Config)),
@@ -183,23 +183,19 @@ end.
 handle_pod_initialisation(#{
     namespace := Namespace,
     pod_name := PodName,
-    networks := Networks
+    networks_data := NetworksData
 }, Config, State) ->
+    NameIdMap = ?Db:networks_name_id_map(Config),
+    Networks = networks(NetworksData, NameIdMap),
+
     ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, Networks}]),
-
-    NetNames = [Name || {Name, _Network} <- Networks],
-    {NameIdMap, NotFoundNames} = ?Db:network_name_id_map(NetNames, Config),
-
-    NotFoundNames == [] orelse
-        ?Log:warning("VXLAN Id for these networks not found: ~p",
-                     [NotFoundNames]),
 
     AgentConfig = maps:put(agent_container_name,
                   maps:get(agent_init_container_name, Config), Config),
 
     lists:foreach(fun({_NetName, Net}) ->
         ?Net:pod_init(Namespace, PodName, Net, AgentConfig)
-    end, networks_set_ids(NameIdMap, Networks)),
+    end, Networks),
 
     ?Agent:terminate(Namespace, PodName, AgentConfig),
 
@@ -209,14 +205,17 @@ handle_pod_added(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
-    networks := Networks
+    networks_data := NetworksData
 }, Config, State) ->
+    NameIdMap = ?Db:networks_name_id_map(Config),
+    Networks = networks(NetworksData, NameIdMap),
+
     ?Log:info("Pod added: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun({NetName, Net}) ->
-        NetPods = network_members(NetName, PodName, Pods, Config),
+        NetPods = network_members(NetName, PodName, Pods, NameIdMap, Config),
         ?Log:info("Pods within \"~s\" to join:~n~s",
                   [NetName, network_members_format(NetPods)]),
         ?Net:pod_add(Namespace, PodName, PodIp, Net, NetPods, Config)
@@ -228,14 +227,17 @@ handle_pod_deleted(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
-    networks := Networks
+    networks_data := NetworksData
 }, Config, State) ->
+    NameIdMap = ?Db:networks_name_id_map(Config),
+    Networks = networks(NetworksData, NameIdMap),
+
     ?Log:info("Pod deleted: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     Pods = ?Pod:get(maps:get(selector, Config), Config),
 
     lists:foreach(fun({NetName, Net}) ->
-        NetPods = network_members(NetName, PodName, Pods, Config),
+        NetPods = network_members(NetName, PodName, Pods, NameIdMap, Config),
         ?Log:info("Pods within \"~s\" to leave:~n~s",
                   [NetName, network_members_format(NetPods)]),
         ?Net:pod_delete(Namespace, PodName, PodIp, Net, NetPods, Config)
@@ -243,30 +245,27 @@ handle_pod_deleted(#{
 
     State.
 
+networks_data(Annotations, Config) ->
+    binary_to_list(maps:get(maps:get(annotation, Config), Annotations, <<>>)).
+
 network_new(NetworkName) -> #{
     name => NetworkName,
     type => ?NetworkType,
     dev => ?NetworkDev
 }.
 
-networks_set_ids(NameIdMap, Networks) ->
-    [{Name, case maps:is_key(id, Network) of
-        true -> Network;
-        false -> maps:put(id, maps:get(Name, NameIdMap), Network)
-    end} || {Name, Network} <- Networks, maps:is_key(Name, NameIdMap)].
+networks(NetworksData, NetworksNameIdMap) ->
+    TokensString = re:replace(NetworksData, "\\h*,\\h*", ",",
+                              [global, {return, list}]),
+    Tokens = string:lexemes(TokensString, ",\n"),
+    Networks = lists:reverse(lists:foldl(fun networks_build/2, [], Tokens)),
+    networks_set_ids(NetworksNameIdMap, Networks).
 
-networks(Annotations, #{annotation := AnnotationName}) ->
-    AnnotationValue = maps:get(AnnotationName, Annotations, <<>>),
-    TokensBinary = re:replace(AnnotationValue, "\\h*,\\h*", ",", [global]),
-    Tokens = string:lexemes(TokensBinary, ",\n"),
-    lists:reverse(lists:foldl(fun networks_build/2, [], Tokens)).
-
-networks_build(Token = <<" ", _/binary>>, Networks) ->
+networks_build(Token = [$ |_], Networks) ->
     networks_add_params(string:lexemes(Token, " "), Networks);
 
 networks_build(Token, Networks) ->
-    [NetworkNameBinary|NetworkParams] = string:lexemes(Token, " "),
-    NetworkName = binary_to_list(NetworkNameBinary),
+    [NetworkName|NetworkParams] = string:lexemes(Token, " "),
     Network = {NetworkName, network_new(NetworkName)},
     networks_add_params(NetworkParams, [Network|Networks]).
 
@@ -274,16 +273,19 @@ networks_add_params(Params, Networks) ->
     lists:foldl(fun networks_add_param/2, Networks, Params).
 
 networks_add_param(Option, [{NetworkName, Network}|RestNetworks]) ->
-    [KeyBinary|ValueIolist] = string:split(Option, "="),
-    Key = binary_to_atom(KeyBinary, latin1),
-    Value = binary_to_list(iolist_to_binary(ValueIolist)),
+    [KeyString|ValueList] = string:split(Option, "="),
+    Key = list_to_atom(KeyString),
+    Value = lists:flatten(ValueList),
     [{NetworkName, maps:put(Key, Value, Network)}|RestNetworks].
 
-%vxlan_names(Annotations, #{annotation := Annotation}) ->
-%    A8nVxlanName = binary_to_list(maps:get(Annotation, Annotations, <<>>)),
-%    string:lexemes(A8nVxlanName, ", \n").
+networks_set_ids(NameIdMap, Networks) ->
+    [{Name, case maps:is_key(id, Network) of
+        true -> Network;
+        false -> maps:put(id, maps:get(Name, NameIdMap), Network)
+      end} || {Name, Network} <- Networks,
+     maps:is_key(id, Network) orelse maps:is_key(Name, NameIdMap)].
 
-network_members(NetworkName, ExcludePodName, Pods, Config) ->
+network_members(NetworkName, ExcludePodName, Pods, NameIdMap, Config) ->
     [{binary_to_list(Namespace),
       binary_to_list(PodName),
       binary_to_list(PodIp),
@@ -297,9 +299,10 @@ network_members(NetworkName, ExcludePodName, Pods, Config) ->
          podIP := PodIp,
          phase := <<"Running">>
        }
-     } <- Pods, Networks <- [networks(Annotations, Config)],
-     lists:keymember(NetworkName, 1, Networks) andalso
-     binary_to_list(PodName) /= ExcludePodName].
+     } <- Pods,
+     Networks <- [networks(networks_data(Annotations, Config), NameIdMap)],
+     binary_to_list(PodName) /= ExcludePodName andalso
+     lists:keymember(NetworkName, 1, Networks)].
 
 network_members_format(Pods) ->
     lists:flatten(io_lib:format(
