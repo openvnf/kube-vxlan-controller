@@ -136,10 +136,10 @@ process_event(pod_deleted, Pod, Config, State) ->
         error -> State
     end;
 
-process_event(_Event, _Pod, _Config, State) -> State.
+process_event(_Event, _Resource, _Config, State) -> State.
 
 read_event(#{
-  type := Type,
+    type := Type,
     object := #{
       kind := Kind,
       metadata := #{
@@ -154,10 +154,7 @@ read_event(#{
       }
     }
 }, Config) -> {
-    list_to_atom(
-        string:lowercase(binary_to_list(Kind)) ++
-        [$_|string:lowercase(binary_to_list(Type))]
-    ),
+    event_type(Kind, Type),
     #{resource_version => binary_to_list(ResourceVersion),
       namespace => binary_to_list(Namespace),
       pod_uid => binary_to_list(PodUid),
@@ -174,7 +171,34 @@ read_event(#{
           maps:get(initContainerStatuses, Status, [])
       )
     }
+};
+
+read_event(#{
+    type := Type,
+    object := #{
+      code := Code,
+      kind := Kind,
+      message := Message = <<"too old resource version:", Versions/binary>>,
+      reason := Reason,
+      status := Status
+    }
+}, _Config) -> {
+    event_type(Kind, Type),
+    #{code => Code,
+      reason => binary_to_list(Reason),
+      status => binary_to_list(Status),
+      message => binary_to_list(Message),
+      resource_version => begin
+          [_DesiredVersion, OldestVersion] = string:lexemes(Versions, "( )"),
+          integer_to_list(binary_to_integer(OldestVersion) - 1)
+      end
+    }
 }.
+
+event_type(Kind, Type) ->
+    EventType = <<(string:lowercase(Kind))/binary, "_",
+                  (string:lowercase(Type))/binary>>,
+    binary_to_atom(EventType, latin1).
 
 is_container_ready_fun(ContainerName) -> fun(#{name := Name, state := State}) ->
     list_to_binary(ContainerName) == Name andalso maps:is_key(running, State)
