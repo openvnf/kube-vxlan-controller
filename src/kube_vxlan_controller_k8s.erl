@@ -8,11 +8,9 @@
     http_stream_read/1,
 
     ws_connect/3,
-    ws_disconnect/1,
+    ws_close/1,
     ws_recv/1
 ]).
-
--define(Ws, kube_vxlan_controller_ws).
 
 -define(JsonDecodeOptions, [return_maps, {labels, atom}]).
 
@@ -94,20 +92,26 @@ ws_connect(Resource, Query, _Config = #{
     token := Token
 }) ->
     Url = url(Server, Resource, Query),
-    ?Ws:connect(Url, headers(Token), ws_options(CaCertFile)).
+    ewsc:connect(Url, headers(Token), ws_options(CaCertFile)).
 
-ws_disconnect(Socket) -> ?Ws:disconnect(Socket).
+ws_close(Socket) -> ewsc:close(Socket).
 
-ws_recv(Socket) -> ws_recv(Socket, "").
+ws_recv(Socket) -> ws_recv(Socket, <<"">>).
 
 ws_recv(Socket, Acc) ->
-    case ?Ws:recv(Socket) of
-        {ok, {close, []}} -> {ok, Acc};
-        {ok, {close, [Binary]}} -> {ok, Acc ++ tl(binary_to_list(Binary))};
-        {ok, []} -> ws_recv(Socket, Acc);
-        {ok, [Binary]} -> ws_recv(Socket, Acc ++ tl(binary_to_list(Binary)));
-        {error, Reason} -> {error, Reason}
+    case ewsc:recv(Socket) of
+        {ok, [close|Messages]} ->
+            {ok, binary_to_list(ws_append_messages(Acc, Messages))};
+        {ok, Messages} ->
+            ws_recv(Socket, ws_append_messages(Acc, Messages));
+        {error, Reason} ->
+            {error, Reason}
     end.
+
+ws_append_messages(Messages, []) -> Messages;
+ws_append_messages(Messages, NewMessages) ->
+    NewMessagesStripped = [M || <<_, M/binary>> <- NewMessages],
+    <<Messages/binary, (iolist_to_binary(NewMessagesStripped))/binary>>.
 
 url(Server, Resource, Query) ->
     Server ++ Resource ++ url_query(Query).

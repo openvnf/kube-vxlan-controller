@@ -54,7 +54,7 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
     case ?K8s:ws_connect(Resource, Query, Config) of
         {ok, Socket} ->
             {ok, Result} = ?K8s:ws_recv(Socket),
-            ?K8s:ws_disconnect(Socket),
+            ?K8s:ws_close(Socket),
             Silent orelse ?Log:info("~s", [Result]),
             Result;
         {error, Reason} ->
