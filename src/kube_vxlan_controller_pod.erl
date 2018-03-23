@@ -13,7 +13,7 @@
     {"stderr", "true"}
 ]).
 
-get(Config) -> get(false, {label, false}, Config).
+get(Config) -> get(all, {label, false}, Config).
 get(Filter = {label, _Selector}, Config) -> get(all, Filter, Config).
 
 get(Namespace, Filter, Config) ->
