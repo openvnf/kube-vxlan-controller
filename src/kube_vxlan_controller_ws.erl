@@ -5,8 +5,6 @@
     send/2, recv/1
 ]).
 
--define(Utils, kube_vxlan_controller_utils).
-
 -include_lib("wsock/include/wsock.hrl").
 
 -define(SendTimeout, 30 * 1000). % milliseconds
@@ -35,7 +33,7 @@ connect({Scheme, _UserInfo, Host, Port, Path, Query}, Headers, Options) ->
 
 connect({Tcp, Host, Port, Path, Query}, Headers, Options) ->
     ConnectOptions = ?ConnectOptions ++ Options,
-    ?Utils:do_while([
+    cpf_funs:apply_while([
         {connect, fun Tcp:connect/3, [Host, Port, ConnectOptions]},
         {open, fun wsock_handshake:open/3, [Path ++ Query, Host, Port]},
         {encode, fun wsock_http_encode/2, [{open}, Headers]},
