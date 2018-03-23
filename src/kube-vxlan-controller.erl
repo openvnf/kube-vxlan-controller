@@ -212,7 +212,7 @@ handle_pod_added(#{
 
     ?Log:info("Pod added: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
-    Pods = ?Pod:get(maps:get(selector, Config), Config),
+    {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
 
     lists:foreach(fun({NetName, Net}) ->
         NetPods = network_members(NetName, PodName, Pods, NameIdMap, Config),
@@ -234,7 +234,7 @@ handle_pod_deleted(#{
 
     ?Log:info("Pod deleted: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
-    Pods = ?Pod:get(maps:get(selector, Config), Config),
+    {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
 
     lists:foreach(fun({NetName, Net}) ->
         NetPods = network_members(NetName, PodName, Pods, NameIdMap, Config),

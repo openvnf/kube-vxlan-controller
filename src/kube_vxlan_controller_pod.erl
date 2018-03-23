@@ -13,16 +13,29 @@
     {"stderr", "true"}
 ]).
 
-get(Config) -> get(false, "", Config).
-get(Selector, Config) -> get(false, Selector, Config).
-get(Namespace, Selector, Config) ->
-    Resource = case Namespace of
-        false -> "/api/v1/pods/";
-        Namespace -> "/api/v1/namespaces/" ++ Namespace ++ "/pods/"
+get(Config) -> get(false, {label, false}, Config).
+get(Filter = {label, _Selector}, Config) -> get(all, Filter, Config).
+
+get(Namespace, Filter, Config) ->
+    Resource = case {Namespace, Filter} of
+        {all, Filter} ->
+            "/api/v1/pods";
+        {Namespace, {label, _Selector}} -> fmt(
+            "/api/v1/namespaces/~s/pods", [Namespace]
+        );
+        {Namespace, {pod, Name}} -> fmt(
+            "/api/v1/namespaces/~s/pods/~s", [Namespace, Name]
+        )
     end,
-    Query = [{"labelSelector", Selector}],
-    {ok, [#{items := Items}]} = ?K8s:http_request(Resource, Query, Config),
-    Items.
+    Query = case Filter of
+        {pod, _Name} -> [];
+        {label, false} -> [];
+        {label, Selector} -> [{"labelSelector", Selector}]
+    end,
+    case ?K8s:http_request(Resource, Query, Config) of
+        {ok, [Result]} -> {ok, maps:get(items, Result, Result)};
+        {error, Reason} -> {error, Reason}
+    end.
 
 exec(Namespace, PodName, ContainerName, Command, Config) ->
     Silent = maps:get(silent, Config, false),
@@ -30,8 +43,7 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
     Silent orelse
         ?Log:info("~s/~s/~s: ~s", [Namespace, PodName, ContainerName, Command]),
 
-    Resource = "/api/v1/namespaces/" ++ Namespace ++
-               "/pods/" ++ PodName ++ "/exec",
+    Resource = fmt("/api/v1/namespaces/~s/pods/~s/exec", [Namespace, PodName]),
 
     Query = lists:foldl(
         fun(Arg, ExecQuery) -> [{"command", Arg}|ExecQuery] end,
@@ -49,3 +61,5 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
             ?Log:error(Reason),
             ""
     end.
+
+fmt(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).

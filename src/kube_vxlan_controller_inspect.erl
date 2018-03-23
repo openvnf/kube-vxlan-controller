@@ -10,7 +10,7 @@
 -define(A8nVxlanNamesSep, ", \n").
 
 networks(VxlanNames, Config) ->
-    AllPods = ?Pod:get(maps:get(selector, Config), Config),
+    {ok, AllPods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
 
     Pods = [
      {binary_to_list(Namespace),
