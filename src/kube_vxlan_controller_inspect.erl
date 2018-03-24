@@ -4,48 +4,34 @@
     networks/2
 ]).
 
--define(Agent, kube_vxlan_controller_agent).
+-define(Db, kube_vxlan_controller_db).
 -define(Pod, kube_vxlan_controller_pod).
+-define(Agent, kube_vxlan_controller_agent).
+-define(Tools, kube_vxlan_controller_tools).
 
--define(A8nVxlanNamesSep, ", \n").
-
-networks(VxlanNames, Config) ->
-    {ok, AllPods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-
-    Pods = [
-     {binary_to_list(Namespace),
-      binary_to_list(Name),
-      binary_to_list(PodIp),
-      vxlan_names(Annotations, Config)} ||
-     #{metadata := #{
-         namespace := Namespace,
-         name := Name,
-         annotations := Annotations
-      },
-       status := #{
-         podIP := PodIp,
-         phase := <<"Running">>
-       }
-     } <- AllPods, any_member(vxlan_names(Annotations, Config), VxlanNames)],
+networks(NetNames, Config) ->
+    {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
+    NameIdMap = ?Db:networks_name_id_map(Config),
 
     SilentConfig = maps:put(silent, true, Config),
-    lists:foreach(fun(VxlanName) ->
-        io:format("[~s]~n", [VxlanName]),
-        lists:foreach(fun({Namespace, PodName, PodIp, PodVxlanNames}) ->
-            IsMember = lists:member(VxlanName, PodVxlanNames),
-            IsMember andalso begin
-                io:format("~s/~s [~s]:~n", [Namespace, PodName, PodIp]),
-                Command = "bridge fdb show dev " ++ VxlanName,
-                Result = ?Agent:exec(Namespace, PodName, Command, SilentConfig),
-                io:format("~s~n", [Result])
-            end
-        end, Pods)
-    end, VxlanNames).
-    
 
-vxlan_names(Annotations, #{annotation := Annotation}) ->
-    VxlanNames = binary_to_list(maps:get(Annotation, Annotations, <<>>)),
-    string:lexemes(VxlanNames, ?A8nVxlanNamesSep).
+    lists:foreach(fun(NetName) ->
+        io:format("[~s]~n", [NetName]),
+        lists:foreach(fun({Namespace, PodName, PodIp, PodNet}) ->
+            Args = [Namespace, PodName, PodIp, network_format(PodNet)],
+            io:format(" pod: ~s/~s ~s~n net: ~s~n fdb: ", Args),
+            Command = "bridge fdb show dev " ++ maps:get(name, PodNet),
+            Fdb = ?Agent:exec(Namespace, PodName, Command, SilentConfig),
+            io:format("~s~n~n", [fdb_format(Fdb)])
+        end, ?Tools:network_members(NetName, "", Pods, NameIdMap, Config))
+    end, NetNames).
 
-any_member(L1, L2) ->
-    lists:any(fun(X) -> lists:member(X, L2) end, L1).
+network_format(Net) ->
+    string:trim(maps:fold(fun(Key, Value, Acc) ->
+        Acc ++ fmt("~s:~s ", [Key, Value])
+    end, "", Net)).
+
+fdb_format(Fdb) ->
+    lists:join("\n      ", string:lexemes(Fdb, "\n")).
+
+fmt(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).
