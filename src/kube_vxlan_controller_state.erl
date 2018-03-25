@@ -1,11 +1,9 @@
 -module(kube_vxlan_controller_state).
 
 -export([
-    merge_pod_pending_info/2,
-    pod_pending_action/2,
-
-    set_pod_pending/3,
-    unset_pod_pending/2,
+    is/3,
+    set/3,
+    unset/3,
 
     resource_version/1,
     set_resource_version/2,
@@ -14,22 +12,16 @@
     set_resource_version_unshown/1
 ]).
 
-merge_pod_pending_info(Pod = #{pod_uid := PodUid}, State) ->
-    #{pending_info := Info} = maps:get(PodUid, State),
-    maps:merge(Pod, Info).
+is(Event, #{pod_uid := Uid}, State) ->
+    sets:is_element(Uid, event(Event, State)).
 
-pod_pending_action(#{pod_uid := PodUid}, State) ->
-    case maps:find(PodUid, State) of
-        {ok, #{pending_action := Action}} -> {ok, Action};
-        error -> error
-    end.
+set(Event, #{pod_uid := Uid}, State) ->
+    maps:put(Event, sets:add_element(Uid, event(Event, State)), State).
 
-set_pod_pending(Action, #{pod_uid := PodUid, pod_ip := PodIp}, State) ->
-    maps:put(PodUid, #{pending_action => Action,
-                       pending_info => #{pod_ip => PodIp}}, State).
+unset(Event, #{pod_uid := Uid}, State) ->
+    maps:put(Event, sets:del_element(Uid, event(Event, State)), State).
 
-unset_pod_pending(#{pod_uid := PodUid}, State) ->
-    maps:remove(PodUid, State).
+event(Event, State) -> maps:get(Event, State, sets:new()).
 
 resource_version(State) ->
     maps:get(resource_version, State, "0").

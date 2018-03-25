@@ -89,49 +89,30 @@ process_event_fun(Config) -> fun(Event, State) ->
     process_event(EventType, Resource, Config, NewState)
 end.
 
-process_event(pod_added, Pod = #{phase := "Pending"}, Config, State) ->
-    NewState = ?State:set_pod_pending(add, Pod, State),
-    case maps:get(init_agent_ready, Pod) of
-        true -> handle_pod_initialisation(Pod, Config, NewState);
-        false -> NewState
+process_event(pod_added, Pod, _Config, State) ->
+    ?State:set(pod_added, Pod, State);
+
+process_event(pod_deleted, Pod, _Config, State) ->
+    ?State:unset(agent_terminated, Pod, State);
+
+process_event(pod_modified, Pod = #{init_agent := running}, Config, State) ->
+    pod_init(Pod, Config, State);
+
+process_event(pod_modified, Pod = #{agent := running}, Config, State) ->
+    case ?State:is(pod_added, Pod, State) of
+        true ->
+            NewState = ?State:unset(pod_added, Pod, State),
+            pod_setup(Pod, Config, NewState);
+        false ->
+            State
     end;
 
-process_event(
-    pod_added,
-    Pod = #{phase := "Running", agent_ready := true},
-    Config, State
-) ->
-    handle_pod_added(Pod, Config, State);
-
-process_event(pod_modified, Pod = #{phase := "Pending"}, Config, State) ->
-    case maps:get(init_agent_ready, Pod) of
-        true -> handle_pod_initialisation(Pod, Config, State);
-        false -> State
-    end;
-
-process_event(
-    pod_modified,
-    Pod = #{phase := "Running", agent_ready := true},
-    Config, State
-) ->
-    case ?State:pod_pending_action(Pod, State) of
-        {ok, add} ->
-            NewState = ?State:unset_pod_pending(Pod, State),
-            handle_pod_added(Pod, Config, NewState);
-        {ok, modify} ->
-            State;
-        error ->
-            ?State:set_pod_pending(modify, Pod, State)
-    end;
-
-process_event(pod_deleted, Pod, Config, State) ->
-    case ?State:pod_pending_action(Pod, State) of
-        {ok, add} -> State;
-        {ok, modify} ->
-            NewPod = ?State:merge_pod_pending_info(Pod, State),
-            NewState = ?State:unset_pod_pending(NewPod, State),
-            handle_pod_deleted(NewPod, Config, NewState);
-        error -> State
+process_event(pod_modified, Pod = #{agent := terminated}, Config, State) ->
+    case ?State:is(agent_terminated, Pod, State) of
+        true -> State;
+        false ->
+            NewState = ?State:set(agent_terminated, Pod, State),
+            pod_cleanup(Pod, Config, NewState)
     end;
 
 process_event(_Event, _Resource, _Config, State) -> State.
@@ -160,12 +141,12 @@ read_event(#{
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
       networks_data => ?Tools:networks_data(Annotations, Config),
       phase => binary_to_list(Phase),
-      agent_ready => lists:any(
-          is_container_ready_fun(maps:get(agent_container_name, Config)),
+      agent => container_state(
+          maps:get(agent_container_name, Config),
           maps:get(containerStatuses, Status, [])
       ),
-      init_agent_ready => lists:any(
-          is_container_ready_fun(maps:get(agent_init_container_name, Config)),
+      init_agent => container_state(
+          maps:get(agent_init_container_name, Config),
           maps:get(initContainerStatuses, Status, [])
       )
     }
@@ -198,11 +179,13 @@ event_type(Kind, Type) ->
                   (string:lowercase(Type))/binary>>,
     binary_to_atom(EventType, latin1).
 
-is_container_ready_fun(ContainerName) -> fun(#{name := Name, state := State}) ->
-    list_to_binary(ContainerName) == Name andalso maps:is_key(running, State)
-end.
+container_state(_ContainerName, []) -> unknown;
+container_state(Name, Statuses) ->
+    [[State]] = [maps:keys(maps:get(state, Status)) || Status <- Statuses,
+                 maps:get(name, Status) == list_to_binary(Name)],
+    State.
 
-handle_pod_initialisation(#{
+pod_init(#{
     namespace := Namespace,
     pod_name := PodName,
     networks_data := NetworksData
@@ -223,7 +206,7 @@ handle_pod_initialisation(#{
 
     State.
 
-handle_pod_added(#{
+pod_setup(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
@@ -232,7 +215,7 @@ handle_pod_added(#{
     NameIdMap = ?Db:networks_name_id_map(Config),
     Networks = ?Tools:networks(NetworksData, NameIdMap),
 
-    ?Log:info("Pod added: ~p", [{Namespace, PodName, PodIp, Networks}]),
+    ?Log:info("Pod setup: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
 
@@ -247,7 +230,7 @@ handle_pod_added(#{
 
     State.
 
-handle_pod_deleted(#{
+pod_cleanup(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
@@ -256,7 +239,7 @@ handle_pod_deleted(#{
     NameIdMap = ?Db:networks_name_id_map(Config),
     Networks = ?Tools:networks(NetworksData, NameIdMap),
 
-    ?Log:info("Pod deleted: ~p", [{Namespace, PodName, PodIp, Networks}]),
+    ?Log:info("Pod cleanup: ~p", [{Namespace, PodName, PodIp, Networks}]),
 
     {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
 
