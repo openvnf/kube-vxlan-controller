@@ -62,9 +62,14 @@ network_members(NetworkName, ExcludePodName, Pods, NameIdMap, Config) ->
       },
        status := #{
          podIP := PodIp,
-         phase := <<"Running">>
+         containerStatuses := ContainerStatuses
        }
      } <- Pods,
+     #{name := ContainerName,
+       state := ContainerState
+     } <- ContainerStatuses,
+     binary_to_list(ContainerName) == maps:get(agent_container_name, Config),
+     maps:is_key(running, ContainerState),
      Networks <- [networks(networks_data(Annotations, Config), NameIdMap)],
      binary_to_list(PodName) /= ExcludePodName andalso
      lists:keymember(NetworkName, 1, Networks)].
