@@ -4,8 +4,7 @@
     load_resource_version/2,
     save_resource_version/3,
 
-    networks_name_id_map/2,
-    networks_name_id_map/1
+    nets_options/1
 ]).
 
 -define(K8s, kube_vxlan_controller_k8s).
@@ -18,11 +17,7 @@ save_resource_version(Selector, Version, Config) ->
     NewData = maps_put_sub(resource_versions, Selector, Version, Data),
     save_config(NewData, Config).
 
-networks_name_id_map(Names, Config) ->
-    NameIdMap = maps:with(Names, networks_name_id_map(Config)),
-    {NameIdMap, [Name || Name <- Names, not maps:is_key(Name, NameIdMap)]}.
-
-networks_name_id_map(
+nets_options(
     Config = #{namespace := Namespace,
                configmap_name := ConfigMapName}
 ) ->
@@ -30,9 +25,16 @@ networks_name_id_map(
                "/configmaps/" ++ ConfigMapName,
     {ok, [#{data := Data}]} = ?K8s:http_request(Resource, [], Config),
 
-    maps:fold(fun(K, V, Map) ->
-        maps:put(atom_to_list(K), binary_to_list(V), Map)
+    maps:fold(fun(NetName, NetOptions, Map) ->
+        maps:put(atom_to_list(NetName), net_options(NetOptions), Map)
     end, #{}, Data).
+
+net_options(Options) ->
+    maps:from_list([
+        {list_to_atom(OptionName), lists:flatten(OptionValue)} ||
+        Option <- string:lexemes(binary_to_list(Options), " "),
+        [OptionName|OptionValue] <- [string:split(Option, "=")]
+    ]).
 
 load_config(Config) ->
     case file:consult(maps:get(db_file, Config)) of

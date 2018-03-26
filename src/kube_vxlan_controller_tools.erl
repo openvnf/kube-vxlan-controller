@@ -1,60 +1,60 @@
 -module(kube_vxlan_controller_tools).
 
 -export([
-    networks_data/2,
-    networks/2,
+    nets_data/2,
+    nets/2,
 
-    network_members/5
+    net_members/5
 ]).
 
--define(NetworkType, "vxlan").
--define(NetworkDev, "eth0").
+-define(NetType, "vxlan").
+-define(NetDev, "eth0").
 
-networks_data(Annotations, Config) ->
+nets_data(Annotations, Config) ->
     binary_to_list(maps:get(maps:get(annotation, Config), Annotations, <<>>)).
 
-networks(NetworksData, NetworksNameIdMap) ->
-    TokensString = re:replace(NetworksData, "\\h*,\\h*", ",",
+nets(NetsData, GlobalNetsOptions) ->
+    TokensString = re:replace(NetsData, "\\h*,\\h*", ",",
                               [global, {return, list}]),
     Tokens = string:lexemes(TokensString, ",\n"),
-    Networks = lists:reverse(lists:foldl(fun networks_build/2, [], Tokens)),
-    networks_set_ids(NetworksNameIdMap, Networks).
+    Nets = lists:reverse(lists:foldl(fun nets_build/2, [], Tokens)),
+    nets_set_global_options(GlobalNetsOptions, Nets).
 
-networks_build(Token = [$ |_], Networks) ->
-    networks_add_params(string:lexemes(Token, " "), Networks);
+nets_build(Token = [$ |_], [Net|Nets]) ->
+    [net_add_options(string:lexemes(Token, " "), Net)|Nets];
 
-networks_build(Token, Networks) ->
-    [NetworkName|NetworkParams] = string:lexemes(Token, " "),
-    Network = {NetworkName, network_new(NetworkName)},
-    networks_add_params(NetworkParams, [Network|Networks]).
+nets_build(Token, Nets) ->
+    [NetName|NetOptions] = string:lexemes(Token, " "),
+    [net_add_options(NetOptions, net_new(NetName))|Nets].
 
-network_new(NetworkName) -> #{
-    name => NetworkName,
-    type => ?NetworkType,
-    dev => ?NetworkDev
-}.
+net_new(NetName) ->
+    {NetName, #{
+        name => NetName,
+        type => ?NetType,
+        dev => ?NetDev
+    }}.
 
-networks_add_params(Params, Networks) ->
-    lists:foldl(fun networks_add_param/2, Networks, Params).
+net_add_options(Options, Net) ->
+    lists:foldl(fun net_add_option/2, Net, Options).
 
-networks_add_param(Option, [{NetworkName, Network}|RestNetworks]) ->
-    [KeyString|ValueList] = string:split(Option, "="),
-    Key = list_to_atom(KeyString),
-    Value = lists:flatten(ValueList),
-    [{NetworkName, maps:put(Key, Value, Network)}|RestNetworks].
+net_add_option(Option, {NetName, NetOptions}) ->
+    [OptionName|OptionValue] = string:split(Option, "="),
+    {NetName, maps:put(list_to_atom(OptionName),
+                       lists:flatten(OptionValue), NetOptions)}.
 
-networks_set_ids(NameIdMap, Networks) ->
-    [{Name, case maps:is_key(id, Network) of
-        true -> Network;
-        false -> maps:put(id, maps:get(Name, NameIdMap), Network)
-      end} || {Name, Network} <- Networks,
-     maps:is_key(id, Network) orelse maps:is_key(Name, NameIdMap)].
+nets_set_global_options(GlobalNetsOptions, Nets) ->
+    lists:filtermap(fun({NetName, NetOptions}) ->
+        GlobalNetOptions = maps:get(NetName, GlobalNetsOptions, #{}),
+        MergedNetOptions = maps:merge(GlobalNetOptions, NetOptions),
+        maps:is_key(id, MergedNetOptions) andalso
+            {true, {NetName, MergedNetOptions}}
+    end, Nets).
 
-network_members(NetworkName, ExcludePodName, Pods, NameIdMap, Config) ->
+net_members(NetName, ExcludePodName, Pods, GlobalNetsOptions, Config) ->
     [{binary_to_list(Namespace),
       binary_to_list(PodName),
       binary_to_list(PodIp),
-      proplists:get_value(NetworkName, Networks)} ||
+      lists:keyfind(NetName, 1, Nets)} ||
      #{metadata := #{
          namespace := Namespace,
          name := PodName,
@@ -70,6 +70,6 @@ network_members(NetworkName, ExcludePodName, Pods, NameIdMap, Config) ->
      } <- ContainerStatuses,
      binary_to_list(ContainerName) == maps:get(agent_container_name, Config),
      maps:is_key(running, ContainerState),
-     Networks <- [networks(networks_data(Annotations, Config), NameIdMap)],
+     Nets <- [nets(nets_data(Annotations, Config), GlobalNetsOptions)],
      binary_to_list(PodName) /= ExcludePodName andalso
-     lists:keymember(NetworkName, 1, Networks)].
+     lists:keymember(NetName, 1, Nets)].

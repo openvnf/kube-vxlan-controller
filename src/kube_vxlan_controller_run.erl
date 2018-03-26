@@ -115,7 +115,7 @@ read_event(#{
       pod_uid => binary_to_list(PodUid),
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-      networks_data => ?Tools:networks_data(Annotations, Config),
+      nets_data => ?Tools:nets_data(Annotations, Config),
       phase => binary_to_list(Phase),
       agent => container_state(
           maps:get(agent_container_name, Config),
@@ -164,19 +164,18 @@ container_state(Name, Statuses) ->
 pod_init(#{
     namespace := Namespace,
     pod_name := PodName,
-    networks_data := NetworksData
+    nets_data := NetsData
 }, Config, State) ->
-    NameIdMap = ?Db:networks_name_id_map(Config),
-    Networks = ?Tools:networks(NetworksData, NameIdMap),
+    Nets = ?Tools:nets(NetsData, ?Db:nets_options(Config)),
 
-    ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, Networks}]),
+    ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, Nets}]),
 
     AgentConfig = maps:put(agent_container_name,
                   maps:get(agent_init_container_name, Config), Config),
 
-    lists:foreach(fun({_NetName, Net}) ->
+    lists:foreach(fun(Net) ->
         ?Net:pod_init(Namespace, PodName, Net, AgentConfig)
-    end, Networks),
+    end, Nets),
 
     ?Agent:terminate(Namespace, PodName, AgentConfig),
 
@@ -186,23 +185,23 @@ pod_setup(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
-    networks_data := NetworksData
+    nets_data := NetsData
 }, Config, State) ->
-    NameIdMap = ?Db:networks_name_id_map(Config),
-    Networks = ?Tools:networks(NetworksData, NameIdMap),
+    NetsOptions = ?Db:nets_options(Config),
+    Nets = ?Tools:nets(NetsData, NetsOptions),
 
-    ?Log:info("Pod setup: ~p", [{Namespace, PodName, PodIp, Networks}]),
+    ?Log:info("Pod setup: ~p", [{Namespace, PodName, PodIp, Nets}]),
 
     {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
 
-    lists:foreach(fun({NetName, Net}) ->
-        NetPods = ?Tools:network_members(
-            NetName, PodName, Pods, NameIdMap, Config
+    lists:foreach(fun(Net = {NetName, _NetOptions}) ->
+        NetPods = ?Tools:net_members(
+            NetName, PodName, Pods, NetsOptions, Config
         ),
         ?Log:info("Pods within \"~s\" to join:~n~s",
                   [NetName, pods_format(NetPods)]),
         ?Net:pod_add(Namespace, PodName, PodIp, Net, NetPods, Config)
-    end, Networks),
+    end, Nets),
 
     State.
 
@@ -210,23 +209,23 @@ pod_cleanup(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
-    networks_data := NetworksData
+    nets_data := NetsData
 }, Config, State) ->
-    NameIdMap = ?Db:networks_name_id_map(Config),
-    Networks = ?Tools:networks(NetworksData, NameIdMap),
+    NetsOptions = ?Db:nets_options(Config),
+    Nets = ?Tools:nets(NetsData, NetsOptions),
 
-    ?Log:info("Pod cleanup: ~p", [{Namespace, PodName, PodIp, Networks}]),
+    ?Log:info("Pod cleanup: ~p", [{Namespace, PodName, PodIp, Nets}]),
 
     {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
 
-    lists:foreach(fun({NetName, Net}) ->
-        NetPods = ?Tools:network_members(
-            NetName, PodName, Pods, NameIdMap, Config
+    lists:foreach(fun(Net = {NetName, _NetOptions}) ->
+        NetPods = ?Tools:net_members(
+            NetName, PodName, Pods, NetsOptions, Config
         ),
         ?Log:info("Pods within \"~s\" to leave:~n~s",
                   [NetName, pods_format(NetPods)]),
         ?Net:pod_delete(Namespace, PodName, PodIp, Net, NetPods, Config)
-    end, Networks),
+    end, Nets),
 
     State.
 

@@ -1,7 +1,8 @@
 -module(kube_vxlan_controller_inspect).
 
 -export([
-    networks/2
+    networks/2,
+    nets/2
 ]).
 
 -define(Db, kube_vxlan_controller_db).
@@ -9,37 +10,44 @@
 -define(Agent, kube_vxlan_controller_agent).
 -define(Tools, kube_vxlan_controller_tools).
 
-networks(NetNames, Config) ->
+networks(NetNames, Config) -> nets(NetNames, Config).
+
+nets(NetNames, Config) ->
     {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-    NameIdMap = ?Db:networks_name_id_map(Config),
+    GlobalNetsOptions = ?Db:nets_options(Config),
 
     SilentConfig = maps:put(silent, true, Config),
 
     lists:foreach(fun(NetName) ->
         io:format("[~s]~n", [NetName]),
-        Members = ?Tools:network_members(NetName, "", Pods, NameIdMap, Config),
-        lists:foreach(network_member_fun(SilentConfig), Members)
+        lists:foreach(
+            show_net_member_fun(SilentConfig),
+            ?Tools:net_members(NetName, "", Pods, GlobalNetsOptions, Config)
+        )
     end, NetNames).
 
-network_member_fun(Config) -> fun({Namespace, PodName, PodIp, PodNet}) ->
+show_net_member_fun(Config) -> fun({Namespace, PodName, PodIp, PodNet}) ->
     io:format(" pod: ~s/~s ~s~n", [Namespace, PodName, PodIp]),
-    io:format(" net: ~s~n", [network_format(PodNet)]),
+    io:format(" net: ~s~n", [net_options_format(PodNet)]),
 
-    CommandDev = "ip -d addr show dev " ++ maps:get(name, PodNet),
+    CommandDev = "ip -d addr show dev " ++ net_option(name, PodNet),
     Dev = ?Agent:exec(Namespace, PodName, CommandDev, Config),
     io:format(" dev: ~s~n", [dev_format(Dev)]),
 
-    CommandFdb = "bridge fdb show dev " ++ maps:get(name, PodNet),
+    CommandFdb = "bridge fdb show dev " ++ net_option(name, PodNet),
     Fdb = ?Agent:exec(Namespace, PodName, CommandFdb, Config),
     io:format(" fdb: ~s~n", [fdb_format(Fdb)]),
 
     io:format("~n")
 end.
 
-network_format(Net) ->
-    string:trim(maps:fold(fun(Key, Value, Acc) ->
-        Acc ++ format("~s:~s ", [Key, Value])
-    end, "", Net)).
+net_option(OptionName, {_NetName, NetOptions}) ->
+    maps:get(OptionName, NetOptions).
+
+net_options_format({_NetName, NetOptions}) ->
+    string:trim(maps:fold(fun(OptionName, OptionValue, Acc) ->
+        Acc ++ format("~s:~s ", [OptionName, OptionValue])
+    end, "", NetOptions)).
 
 dev_format(Fdb) ->
     lists:join("\n      ", [L || [_,_,_|L] <- string:lexemes(Fdb, "\n")]).

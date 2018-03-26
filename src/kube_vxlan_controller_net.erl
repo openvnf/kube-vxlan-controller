@@ -37,24 +37,24 @@ pod_delete(Namespace, PodName, PodIp, Net, NetPods, Config) ->
     end, NetPods).
 
 link_add(Namespace, PodName, Net, Config) ->
-    Command = "ip link add " ++ maps:get(name, Net) ++
-              " type " ++ maps:get(type, Net) ++
-              " id " ++ maps:get(id, Net) ++
-              " dev " ++ maps:get(dev, Net) ++
+    Command = "ip link add " ++ net_option(name, Net) ++
+              " type " ++ net_option(type, Net) ++
+              " id " ++ net_option(id, Net) ++
+              " dev " ++ net_option(dev, Net) ++
               " dstport 0",
 
     ?Agent:exec(Namespace, PodName, Command, Config).
 
 link_delete(Namespace, PodName, Net, Config) ->
-    Command = "ip link delete " ++ maps:get(name, Net),
+    Command = "ip link delete " ++ net_option(name, Net),
     ?Agent:exec(Namespace, PodName, Command, Config).
 
 link_up(Namespace, PodName, Net, Config) ->
-    Command = "ip link set " ++ maps:get(name, Net) ++ " up",
+    Command = "ip link set " ++ net_option(name, Net) ++ " up",
     ?Agent:exec(Namespace, PodName, Command, Config).
 
 link_down(Namespace, PodName, Net, Config) ->
-    Command = "ip link set " ++ maps:get(name, Net) ++ " down",
+    Command = "ip link set " ++ net_option(name, Net) ++ " down",
     ?Agent:exec(Namespace, PodName, Command, Config).
 
 bridge_append(Namespace, PodName, Net, TargetIp, Config) ->
@@ -62,7 +62,7 @@ bridge_append(Namespace, PodName, Net, TargetIp, Config) ->
     BridgeExists orelse begin
         Command = "bridge fdb append to 00:00:00:00:00:00" ++
                   " dst " ++ TargetIp ++
-                  " dev " ++ maps:get(name, Net),
+                  " dev " ++ net_option(name, Net),
         ?Agent:exec(Namespace, PodName, Command, Config)
     end.
 
@@ -70,22 +70,25 @@ bridge_delete(Namespace, PodName, Net, TargetIp, Config) ->
     lists:foreach(fun(Mac) ->
         Command = "bridge fdb delete " ++ Mac ++
                   " dst " ++ TargetIp ++
-                  " dev " ++ maps:get(name, Net),
+                  " dev " ++ net_option(name, Net),
         ?Agent:exec(Namespace, PodName, Command, Config)
     end, bridge_macs(Namespace, PodName, Net, TargetIp, Config)).
 
 bridge_macs(Namespace, PodName, Net, TargetIp, Config) ->
-    Command = "bridge fdb show dev " ++ maps:get(name, Net),
+    Command = "bridge fdb show dev " ++ net_option(name, Net),
     Result = ?Agent:exec(Namespace, PodName, Command, Config),
     [Mac || FdbRecord <- string:lexemes(Result, "\n"),
             [Mac, "dst", Ip|_ ] <- [string:lexemes(FdbRecord, " ")],
             Ip == TargetIp].
 
 vxlan_id(Namespace, PodName, Net, Config) ->
-    Command = "ip -d link show " ++ maps:get(name, Net),
+    Command = "ip -d link show " ++ net_option(name, Net),
     Result = ?Agent:exec(Namespace, PodName, Command, Config),
 
     case string:lexemes(hd(lists:reverse(string:lexemes(Result, "\n"))), " ") of
         ["vxlan", "id", Id|_] -> {ok, Id};
         _Other -> {error, not_found}
     end.
+
+net_option(OptionName, {_NetName, NetOptions}) ->
+    maps:get(OptionName, NetOptions).
