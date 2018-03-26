@@ -17,25 +17,28 @@ networks(NetNames, Config) ->
 
     lists:foreach(fun(NetName) ->
         io:format("[~s]~n", [NetName]),
-        lists:foreach(fun({Namespace, PodName, PodIp, PodNet}) ->
-            io:format(" pod: ~s/~s ~s~n", [Namespace, PodName, PodIp]),
-            io:format(" net: ~s~n", [network_format(PodNet)]),
-
-            CommandDev = "ip -d addr show dev " ++ maps:get(name, PodNet),
-            Dev = ?Agent:exec(Namespace, PodName, CommandDev, SilentConfig),
-            io:format(" dev: ~s~n", [dev_format(Dev)]),
-
-            CommandFdb = "bridge fdb show dev " ++ maps:get(name, PodNet),
-            Fdb = ?Agent:exec(Namespace, PodName, CommandFdb, SilentConfig),
-            io:format(" fdb: ~s~n", [fdb_format(Fdb)]),
-
-            io:format("~n")
-        end, ?Tools:network_members(NetName, "", Pods, NameIdMap, Config))
+        Members = ?Tools:network_members(NetName, "", Pods, NameIdMap, Config),
+        lists:foreach(network_member_fun(SilentConfig), Members)
     end, NetNames).
+
+network_member_fun(Config) -> fun({Namespace, PodName, PodIp, PodNet}) ->
+    io:format(" pod: ~s/~s ~s~n", [Namespace, PodName, PodIp]),
+    io:format(" net: ~s~n", [network_format(PodNet)]),
+
+    CommandDev = "ip -d addr show dev " ++ maps:get(name, PodNet),
+    Dev = ?Agent:exec(Namespace, PodName, CommandDev, Config),
+    io:format(" dev: ~s~n", [dev_format(Dev)]),
+
+    CommandFdb = "bridge fdb show dev " ++ maps:get(name, PodNet),
+    Fdb = ?Agent:exec(Namespace, PodName, CommandFdb, Config),
+    io:format(" fdb: ~s~n", [fdb_format(Fdb)]),
+
+    io:format("~n")
+end.
 
 network_format(Net) ->
     string:trim(maps:fold(fun(Key, Value, Acc) ->
-        Acc ++ fmt("~s:~s ", [Key, Value])
+        Acc ++ format("~s:~s ", [Key, Value])
     end, "", Net)).
 
 dev_format(Fdb) ->
@@ -44,4 +47,4 @@ dev_format(Fdb) ->
 fdb_format(Fdb) ->
     lists:join("\n      ", string:lexemes(Fdb, "\n")).
 
-fmt(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).
+format(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).
