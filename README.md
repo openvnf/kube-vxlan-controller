@@ -75,12 +75,13 @@ created.
 
 According to [VXLAN specification] during the setup process a VXLAN should be
 provided with a Segment ID or "VXLAN Network Identifier (VNI)". The controller
-does that automatically using the predefined Kubernetes configmap object that
-should exist by the time of creation a VXLAN. The configmap describes relation
-of a VXLAN name to its VNI.
+does that automatically using the ID specified in the network options. The
+options could be defined either in the "kube-vxlan-controller" configmap
+or in the annotation (see "Network Configuration" below).
 
 The manifest used in the "Deployment" section defines a configmap with initial
-set of VXLAN name to VNI relations and could be edited using this command:
+set of options defining VXLAN name to VNI relations and could be edited using
+this command:
 
 ```
 $ kubectl -n kube-system edit configmap kube-vxlan-controller
@@ -104,14 +105,26 @@ Examples:
 anntations:
   vxlan.travelping.com/networks: |
     vxeth0
-      id=1001
+      id=1000
       dev=tun0
     vxeth1
 ```
 ```
 anntations:
-  vxlan.travelping.com/networks: vxeth0 id=1001 dev=tun0, vxeth1
+  vxlan.travelping.com/networks: vxeth0 id=1000 dev=tun0, vxeth1
 ```
+
+When specified in annotation, a network is configured on a pod level. To set
+configuration on a cluster level, the network options configmap should be
+modified accordingly:
+
+```
+data:
+  vxeth0: id=1000 dev=tun0
+  vxeth1: id=1001
+```
+
+A pod level configuration pair overrides a cluster level one.
 
 ## Controller Workflow
 
