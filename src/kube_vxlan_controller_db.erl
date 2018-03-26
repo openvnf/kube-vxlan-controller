@@ -30,11 +30,23 @@ nets_options(
     end, #{}, Data).
 
 net_options(Options) ->
-    maps:from_list([
+    maps:from_list(net_id_bc([
         {list_to_atom(OptionName), lists:flatten(OptionValue)} ||
         Option <- string:lexemes(binary_to_list(Options), " "),
         [OptionName|OptionValue] <- [string:split(Option, "=")]
-    ]).
+    ])).
+
+%%% provided for BC, removed when not needed
+net_id_bc(Options) ->
+    lists:map(fun({Name, Value}) ->
+        NameString = atom_to_list(Name),
+        try list_to_integer(NameString) of
+            Id -> {id, integer_to_list(Id)}
+        catch
+            _:_ -> {Name, Value}
+        end
+    end, Options).
+%%%
 
 load_config(Config) ->
     case file:consult(maps:get(db_file, Config)) of
