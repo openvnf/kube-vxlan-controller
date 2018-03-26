@@ -18,11 +18,18 @@ networks(NetNames, Config) ->
     lists:foreach(fun(NetName) ->
         io:format("[~s]~n", [NetName]),
         lists:foreach(fun({Namespace, PodName, PodIp, PodNet}) ->
-            Args = [Namespace, PodName, PodIp, network_format(PodNet)],
-            io:format(" pod: ~s/~s ~s~n net: ~s~n fdb: ", Args),
-            Command = "bridge fdb show dev " ++ maps:get(name, PodNet),
-            Fdb = ?Agent:exec(Namespace, PodName, Command, SilentConfig),
-            io:format("~s~n~n", [fdb_format(Fdb)])
+            io:format(" pod: ~s/~s ~s~n", [Namespace, PodName, PodIp]),
+            io:format(" net: ~s~n", [network_format(PodNet)]),
+
+            CommandDev = "ip -d addr show dev " ++ maps:get(name, PodNet),
+            Dev = ?Agent:exec(Namespace, PodName, CommandDev, SilentConfig),
+            io:format(" dev: ~s~n", [dev_format(Dev)]),
+
+            CommandFdb = "bridge fdb show dev " ++ maps:get(name, PodNet),
+            Fdb = ?Agent:exec(Namespace, PodName, CommandFdb, SilentConfig),
+            io:format(" fdb: ~s~n", [fdb_format(Fdb)]),
+
+            io:format("~n")
         end, ?Tools:network_members(NetName, "", Pods, NameIdMap, Config))
     end, NetNames).
 
@@ -30,6 +37,9 @@ network_format(Net) ->
     string:trim(maps:fold(fun(Key, Value, Acc) ->
         Acc ++ fmt("~s:~s ", [Key, Value])
     end, "", Net)).
+
+dev_format(Fdb) ->
+    lists:join("\n      ", [L || [_,_,_|L] <- string:lexemes(Fdb, "\n")]).
 
 fdb_format(Fdb) ->
     lists:join("\n      ", string:lexemes(Fdb, "\n")).
