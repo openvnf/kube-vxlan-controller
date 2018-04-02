@@ -99,6 +99,7 @@ The following parameters are supported:
 * name — network interface name (default: network name)
 * dev — device used to create a network (default: eth0)
 * up — set network interface up after creation (default: false)
+* ip — assign network interface a specified IP address (default: false)
 
 Examples:
 
@@ -108,6 +109,7 @@ anntations:
     vxeth0
       id=1000
       dev=tun0
+      ip=192.168.10.1/24
     vxeth1
       up=false
 ```

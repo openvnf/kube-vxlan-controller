@@ -21,6 +21,7 @@
 
 pod_setup(Pod, Config) ->
     links(add, Pod, Config),
+    links(ip, Pod, Config),
     links(up, Pod, Config).
 
 pod_join(Pod, NetPods, Config) ->
@@ -63,7 +64,14 @@ link(up, Pod, NetName, Config) ->
 
 link(down, Pod, NetName, Config) ->
     Command = cmd("ip link set ~s down", [name], Pod, NetName),
-    ?Agent:exec(Pod, Command, Config).
+    ?Agent:exec(Pod, Command, Config);
+
+link(ip, Pod, NetName, Config) ->
+    Ip = maps:get(ip, pod_net_options(NetName, Pod), false),
+    Ip == false orelse begin
+        Command = cmd("ip addr add ~s dev ~s", [ip, name], Pod, NetName),
+        ?Agent:exec(Pod, Command, Config)
+    end.
 
 bridges(Action, Pod, TargetIp, Config) ->
     bridges(Action, Pod, pod_net_names(Pod), TargetIp, Config).
