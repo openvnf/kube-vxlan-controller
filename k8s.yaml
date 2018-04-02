@@ -23,10 +23,10 @@ metadata:
   name: kube-vxlan-controller
   namespace: kube-system
 data:
-  vxeth0: id=100
-  vxeth1: id=101
-  vxeth2: id=102
-  vxeth3: id=103
+  vxeth0: id=100 up
+  vxeth1: id=101 up
+  vxeth2: id=102 up
+  vxeth3: id=103 up
 ---
 apiVersion: v1
 kind: ConfigMap
