@@ -22,7 +22,8 @@
 pod_setup(Pod, Config) ->
     links(add, Pod, Config),
     links(ip, Pod, Config),
-    links(up, Pod, Config).
+    links(up, Pod, Config),
+    links(route, Pod, Config).
 
 pod_join(Pod, NetPods, Config) ->
     lists:foreach(fun(NetPod) ->
@@ -70,6 +71,14 @@ link(ip, Pod, NetName, Config) ->
     Ip = pod_net_option(ip, NetName, Pod),
     Ip == false orelse begin
         Command = cmd("ip addr add ~s dev ~s", [ip, name], Pod, NetName),
+        ?Agent:exec(Pod, Command, Config)
+    end;
+
+link(route, Pod, NetName, Config) ->
+    Route = pod_net_option(route, NetName, Pod),
+    Route == false orelse begin
+        [Subnet, Gw] = string:split(Route, ":"),
+        Command = cmd("ip route add ~s via ~s", [Subnet, Gw], Pod, NetName),
         ?Agent:exec(Pod, Command, Config)
     end.
 

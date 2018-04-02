@@ -100,6 +100,7 @@ The following parameters are supported:
 * dev — device used to create a network (default: eth0)
 * up — set network interface up after creation (default: false)
 * ip — assign network interface a specified IP address (default: false)
+* route — create a route (default: false)
 
 Examples:
 
@@ -110,6 +111,7 @@ anntations:
       id=1000
       dev=tun0
       ip=192.168.10.1/24
+      route=192.168.10.0/24:192.168.100.1
     vxeth1
       up=false
 ```
