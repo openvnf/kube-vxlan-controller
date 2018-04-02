@@ -56,7 +56,7 @@ link(delete, Pod, NetName, Config) ->
     ?Agent:exec(Pod, Command, Config);
 
 link(up, Pod, NetName, Config) ->
-    NeedUp = maps:get(up, pod_net_options(NetName, Pod), false),
+    NeedUp = pod_net_option(up, NetName, Pod),
     NeedUp andalso begin
         Command = cmd("ip link set ~s up", [name], Pod, NetName),
         ?Agent:exec(Pod, Command, Config)
@@ -67,7 +67,7 @@ link(down, Pod, NetName, Config) ->
     ?Agent:exec(Pod, Command, Config);
 
 link(ip, Pod, NetName, Config) ->
-    Ip = maps:get(ip, pod_net_options(NetName, Pod), false),
+    Ip = pod_net_option(ip, NetName, Pod),
     Ip == false orelse begin
         Command = cmd("ip addr add ~s dev ~s", [ip, name], Pod, NetName),
         ?Agent:exec(Pod, Command, Config)
@@ -122,6 +122,9 @@ pod_net_names(Pod) ->
 
 pod_net_options(NetName, Pod) ->
     proplists:get_value(NetName, maps:get(nets, Pod)).
+
+pod_net_option(OptionName, NetName, Pod) ->
+    maps:get(OptionName, pod_net_options(NetName, Pod), false).
 
 cmd(Format, Args, Pod, NetName) ->
     NetOptions = pod_net_options(NetName, Pod),
