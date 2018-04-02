@@ -1,25 +1,21 @@
 -module(kube_vxlan_controller_agent).
 
 -export([
-    exec/4,
-    terminate/3,
-    version/3
+    terminate/2,
+    exec/3
 ]).
 
 -define(Pod, kube_vxlan_controller_pod).
 
-exec(Namespace, PodName, Command, Config) ->
+terminate(Pod, Config) ->
+    %%% TODO: provided for BC, remove once not needed
+    exec(Pod, "touch /run/terminate", Config),
+    %%%
+    exec(Pod, "kill -TERM 1", Config).
+
+exec(#{namespace := Namespace, name := PodName}, Command, Config) ->
     ContainerName = maps:get(agent_container_name, Config),
     ?Pod:exec(Namespace, PodName, ContainerName, Command, Config).
-
-terminate(Namespace, PodName, Config) ->
-    %%% TODO: provided for BC, remove once not needed
-    exec(Namespace, PodName, "touch /run/terminate", Config),
-    %%%
-    exec(Namespace, PodName, "kill -TERM 1", Config).
-
-version(Namespace, PodName, Config) ->
-    exec(Namespace, PodName, "kube-vxlan-controller-agent version", Config).
 
 %-define(AgentContainerName, <<"vxlan-controller-agent">>).
 %-define(AgentImage, <<"aialferov/kube-vxlan-controller-agent">>).

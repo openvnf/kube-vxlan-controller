@@ -12,6 +12,7 @@
 -define(Agent, kube_vxlan_controller_agent).
 -define(State, kube_vxlan_controller_state).
 -define(Tools, kube_vxlan_controller_tools).
+-define(Format, kube_vxlan_controller_format).
 
 loop(Config) ->
     Selector = maps:get(selector, Config),
@@ -72,13 +73,18 @@ process_event(pod_deleted, Pod, _Config, State) ->
     ?State:unset(agent_terminated, Pod, State);
 
 process_event(pod_modified, Pod = #{init_agent := running}, Config, State) ->
-    pod_init(Pod, Config, State);
+    UseInitAgentConfig = maps:put(
+        agent_container_name,
+        maps:get(agent_init_container_name, Config),
+        Config
+    ),
+    pod_setup(Pod, UseInitAgentConfig, State);
 
 process_event(pod_modified, Pod = #{agent := running}, Config, State) ->
     case ?State:is(pod_added, Pod, State) of
         true ->
             NewState = ?State:unset(pod_added, Pod, State),
-            pod_setup(Pod, Config, NewState);
+            pod_join(Pod, Config, NewState);
         false ->
             State
     end;
@@ -88,10 +94,15 @@ process_event(pod_modified, Pod = #{agent := terminated}, Config, State) ->
         true -> State;
         false ->
             NewState = ?State:set(agent_terminated, Pod, State),
-            pod_cleanup(Pod, Config, NewState)
+            pod_leave(Pod, Config, NewState)
     end;
 
 process_event(_Event, _Resource, _Config, State) -> State.
+
+event_type(Kind, Type) ->
+    EventType = <<(string:lowercase(Kind))/binary, "_",
+                  (string:lowercase(Type))/binary>>,
+    binary_to_atom(EventType, latin1).
 
 read_event(#{
     type := Type,
@@ -115,13 +126,13 @@ read_event(#{
       pod_uid => binary_to_list(PodUid),
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-      nets_data => ?Tools:nets_data(Annotations, Config),
+      nets_data => ?Tools:pod_nets_data(Annotations, Config),
       phase => binary_to_list(Phase),
-      agent => container_state(
+      agent => ?Tools:pod_container_state(
           maps:get(agent_container_name, Config),
           maps:get(containerStatuses, Status, [])
       ),
-      init_agent => container_state(
+      init_agent => ?Tools:pod_container_state(
           maps:get(agent_init_container_name, Config),
           maps:get(initContainerStatuses, Status, [])
       )
@@ -150,85 +161,54 @@ read_event(#{
     }
 }.
 
-event_type(Kind, Type) ->
-    EventType = <<(string:lowercase(Kind))/binary, "_",
-                  (string:lowercase(Type))/binary>>,
-    binary_to_atom(EventType, latin1).
-
-container_state(_ContainerName, []) -> unknown;
-container_state(Name, Statuses) ->
-    [[State]] = [maps:keys(maps:get(state, Status)) || Status <- Statuses,
-                 maps:get(name, Status) == list_to_binary(Name)],
+pod_setup(PodResource, Config, State) ->
+    Pod = pod(PodResource, ?Db:nets_options(Config)),
+    ?Log:info("Pod setup:~n~s", [pods_format([Pod])]),
+    ?Net:pod_setup(Pod, Config),
+    ?Agent:terminate(Pod, Config),
     State.
 
-pod_init(#{
-    namespace := Namespace,
-    pod_name := PodName,
-    nets_data := NetsData
-}, Config, State) ->
-    Nets = ?Tools:nets(NetsData, ?Db:nets_options(Config)),
-
-    ?Log:info("Pod initialisation ~p:", [{Namespace, PodName, Nets}]),
-
-    AgentConfig = maps:put(agent_container_name,
-                  maps:get(agent_init_container_name, Config), Config),
-
-    lists:foreach(fun(Net) ->
-        ?Net:pod_init(Namespace, PodName, Net, AgentConfig)
-    end, Nets),
-
-    ?Agent:terminate(Namespace, PodName, AgentConfig),
-
+pod_join(PodResource, Config, State) ->
+    {Pod, NetPods} = pods(PodResource, Config),
+    ?Log:info("Pod joining:~n~s", [pods_format([Pod])]),
+    ?Log:info("Pods to join:~n~s", [pods_format(NetPods)]),
+    ?Net:pod_join(Pod, NetPods, Config),
     State.
 
-pod_setup(#{
-    namespace := Namespace,
-    pod_name := PodName,
-    pod_ip := PodIp,
-    nets_data := NetsData
-}, Config, State) ->
-    NetsOptions = ?Db:nets_options(Config),
-    Nets = ?Tools:nets(NetsData, NetsOptions),
-
-    ?Log:info("Pod setup: ~p", [{Namespace, PodName, PodIp, Nets}]),
-
-    {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-
-    lists:foreach(fun(Net = {NetName, _NetOptions}) ->
-        NetPods = ?Tools:net_members(
-            NetName, PodName, Pods, NetsOptions, Config
-        ),
-        ?Log:info("Pods within \"~s\" to join:~n~s",
-                  [NetName, pods_format(NetPods)]),
-        ?Net:pod_add(Namespace, PodName, PodIp, Net, NetPods, Config)
-    end, Nets),
-
+pod_leave(PodResource, Config, State) ->
+    {Pod, NetPods} = pods(PodResource, Config),
+    ?Log:info("Pod leaving:~n~s", [pods_format([Pod])]),
+    ?Log:info("Pods to leave:~n~s", [pods_format(NetPods)]),
+    ?Net:pod_leave(Pod, NetPods, Config),
     State.
 
-pod_cleanup(#{
+pods(PodResource, Config) ->
+    GlobalNetsOptions = ?Db:nets_options(Config),
+    Pod = pod(PodResource, GlobalNetsOptions),
+
+    {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),
+    Filters = [
+        {with_nets, ?Net:pod_net_names(Pod)},
+        {without_pods, [maps:get(name, Pod)]}
+    ],
+    {Pod, ?Tools:pods(PodResources, GlobalNetsOptions, Filters, Config)}.
+
+pod(#{
     namespace := Namespace,
     pod_name := PodName,
     pod_ip := PodIp,
     nets_data := NetsData
-}, Config, State) ->
-    NetsOptions = ?Db:nets_options(Config),
-    Nets = ?Tools:nets(NetsData, NetsOptions),
-
-    ?Log:info("Pod cleanup: ~p", [{Namespace, PodName, PodIp, Nets}]),
-
-    {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-
-    lists:foreach(fun(Net = {NetName, _NetOptions}) ->
-        NetPods = ?Tools:net_members(
-            NetName, PodName, Pods, NetsOptions, Config
-        ),
-        ?Log:info("Pods within \"~s\" to leave:~n~s",
-                  [NetName, pods_format(NetPods)]),
-        ?Net:pod_delete(Namespace, PodName, PodIp, Net, NetPods, Config)
-    end, Nets),
-
-    State.
+}, GlobalNetsOptions) -> #{
+    namespace => Namespace,
+    name => PodName,
+    ip => PodIp,
+    nets => ?Tools:pod_nets(NetsData, GlobalNetsOptions)
+}.
 
 pods_format(Pods) ->
-    Format = lists:flatten(lists:duplicate(length(Pods), "~p~n")),
-    lists:flatten(io_lib:format(Format, Pods)).
+    Indent = 2,
+    lists:flatten([
+        ?Format:pod(Pod) ++ "\n" ++
+        ?Format:pod_nets(maps:get(nets, Pod), Indent) ++ "\n" ||
+        Pod <- Pods
+    ]).

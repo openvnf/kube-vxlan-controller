@@ -6,53 +6,46 @@
 ]).
 
 -define(Db, kube_vxlan_controller_db).
+-define(Net, kube_vxlan_controller_net).
 -define(Pod, kube_vxlan_controller_pod).
 -define(Agent, kube_vxlan_controller_agent).
 -define(Tools, kube_vxlan_controller_tools).
+-define(Format, kube_vxlan_controller_format).
 
 networks(NetNames, Config) -> nets(NetNames, Config).
 
 nets(NetNames, Config) ->
-    {ok, Pods} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-    GlobalNetsOptions = ?Db:nets_options(Config),
-
     SilentConfig = maps:put(silent, true, Config),
 
+    {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),
+    Pods = ?Tools:pods(PodResources, ?Db:nets_options(Config),
+                       [{with_nets, NetNames}], Config),
     lists:foreach(fun(NetName) ->
         io:format("[~s]~n", [NetName]),
-        lists:foreach(
-            show_net_member_fun(SilentConfig),
-            ?Tools:net_members(NetName, "", Pods, GlobalNetsOptions, Config)
-        )
+        lists:foreach(fun(Pod) ->
+            show_pod(Pod, NetName, SilentConfig)
+        end, Pods)
     end, NetNames).
 
-show_net_member_fun(Config) -> fun({Namespace, PodName, PodIp, PodNet}) ->
-    io:format(" pod: ~s/~s ~s~n", [Namespace, PodName, PodIp]),
-    io:format(" net: ~s~n", [net_options_format(PodNet)]),
+show_pod(Pod = #{nets := Nets}, NetName, Config) ->
+    PodNetOptions = proplists:get_value(NetName, Nets, false),
+    is_map(PodNetOptions) andalso begin
+        CommandFdb = ?Net:cmd("bridge fdb show dev ~s", [name], Pod, NetName),
+        CommandDev = ?Net:cmd("ip -d addr show dev ~s", [name], Pod, NetName),
 
-    CommandDev = "ip -d addr show dev " ++ net_option(name, PodNet),
-    Dev = ?Agent:exec(Namespace, PodName, CommandDev, Config),
-    io:format(" dev: ~s~n", [dev_format(Dev)]),
+        Fdb = ?Agent:exec(Pod, CommandFdb, Config),
+        Dev = ?Agent:exec(Pod, CommandDev, Config),
 
-    CommandFdb = "bridge fdb show dev " ++ net_option(name, PodNet),
-    Fdb = ?Agent:exec(Namespace, PodName, CommandFdb, Config),
-    io:format(" fdb: ~s~n", [fdb_format(Fdb)]),
-
-    io:format("~n")
-end.
-
-net_option(OptionName, {_NetName, NetOptions}) ->
-    maps:get(OptionName, NetOptions).
-
-net_options_format({_NetName, NetOptions}) ->
-    string:trim(maps:fold(fun(OptionName, OptionValue, Acc) ->
-        Acc ++ format("~s:~s ", [OptionName, OptionValue])
-    end, "", NetOptions)).
-
-dev_format(Fdb) ->
-    lists:join("\n      ", [L || [_,_,_|L] <- string:lexemes(Fdb, "\n")]).
-
-fdb_format(Fdb) ->
-    lists:join("\n      ", string:lexemes(Fdb, "\n")).
-
-format(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).
+        Ident = 6,
+        io:format(
+            " pod: ~s~n"
+            " net: ~s~n"
+            " fdb: ~s~n"
+            " dev: ~s~n"
+            "~n", [
+            ?Format:pod(Pod),
+            ?Format:pod_net_options(PodNetOptions),
+            string:trim(?Format:fdb(Fdb, Ident)),
+            string:trim(?Format:dev(Dev, Ident))
+        ])
+    end.
