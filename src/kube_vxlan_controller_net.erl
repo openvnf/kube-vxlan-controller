@@ -109,9 +109,13 @@ common_pod_net_names(Pod1, Pod2) ->
 pod_net_names(Pod) ->
     [Name || {Name, _Options} <- maps:get(nets, Pod)].
 
-cmd(Format, Args, Pod, NetName) ->
-    Net = proplists:get_value(NetName, maps:get(nets, Pod)),
-    lists:flatten(io_lib:format(Format, [cmd_arg(Arg, Net) || Arg <- Args])).
+pod_net_options(NetName, Pod) ->
+    proplists:get_value(NetName, maps:get(nets, Pod)).
 
-cmd_arg(Arg, Net) when is_atom(Arg) -> maps:get(Arg, Net);
-cmd_arg(Arg, _Net) -> Arg.
+cmd(Format, Args, Pod, NetName) ->
+    NetOptions = pod_net_options(NetName, Pod),
+    CmdArgs = [cmd_arg(Arg, NetOptions) || Arg <- Args],
+    lists:flatten(io_lib:format(Format, CmdArgs)).
+
+cmd_arg(Arg, NetOptions) when is_atom(Arg) -> maps:get(Arg, NetOptions);
+cmd_arg(Arg, _NetOptions) -> Arg.

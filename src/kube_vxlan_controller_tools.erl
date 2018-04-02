@@ -7,6 +7,7 @@
     pod_nets_data/2,
     pod_nets/2,
 
+    pod_read_net_option/1,
     pod_container_state/2
 ]).
 
@@ -86,9 +87,14 @@ pod_net_add_options(Options, Net) ->
     lists:foldl(fun pod_net_add_option/2, Net, Options).
 
 pod_net_add_option(Option, {NetName, NetOptions}) ->
-    [OptionName|OptionValue] = string:split(Option, "="),
-    {NetName, maps:put(list_to_atom(OptionName),
-                       lists:flatten(OptionValue), NetOptions)}.
+    {OptionName, OptionValue} = pod_read_net_option(Option),
+    {NetName, maps:put(OptionName, OptionValue, NetOptions)}.
+
+pod_read_net_option(Option) ->
+    [Name|Value] = string:split(Option, "="),
+    {list_to_atom(Name), case Value of
+        Value -> lists:flatten(Value)
+     end}.
 
 pod_nets_apply_global_options(GlobalNetsOptions, Nets) ->
     lists:filtermap(fun({NetName, NetOptions}) ->

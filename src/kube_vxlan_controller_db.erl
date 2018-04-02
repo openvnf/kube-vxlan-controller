@@ -8,6 +8,7 @@
 ]).
 
 -define(K8s, kube_vxlan_controller_k8s).
+-define(Tools, kube_vxlan_controller_tools).
 
 load_resource_version(Selector, Config) ->
     maps_get_sub(resource_versions, Selector, load_config(Config), "0").
@@ -31,12 +32,11 @@ nets_options(
 
 net_options(Options) ->
     maps:from_list(net_id_bc([
-        {list_to_atom(OptionName), lists:flatten(OptionValue)} ||
-        Option <- string:lexemes(binary_to_list(Options), " "),
-        [OptionName|OptionValue] <- [string:split(Option, "=")]
+        ?Tools:pod_read_net_option(Option) ||
+        Option <- string:lexemes(binary_to_list(Options), " ")
     ])).
 
-%%% provided for BC, removed when not needed
+%%% TODO: provided for BC, remove when not needed
 net_id_bc(Options) ->
     lists:map(fun({Name, Value}) ->
         NameString = atom_to_list(Name),
