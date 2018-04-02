@@ -98,6 +98,7 @@ The following parameters are supported:
 * id — network identifier (default: according to the configmap)
 * name — network interface name (default: network name)
 * dev — device used to create a network (default: eth0)
+* up — set network interface up after creation (default: false)
 
 Examples:
 
@@ -108,6 +109,7 @@ anntations:
       id=1000
       dev=tun0
     vxeth1
+      up=false
 ```
 ```
 anntations:
@@ -121,7 +123,7 @@ modified accordingly:
 ```
 data:
   vxeth0: id=1000 dev=tun0
-  vxeth1: id=1001
+  vxeth1: id=1001 up
 ```
 
 A pod level configuration pair overrides a cluster level one.
