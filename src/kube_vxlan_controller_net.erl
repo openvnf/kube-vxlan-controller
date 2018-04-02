@@ -55,8 +55,11 @@ link(delete, Pod, NetName, Config) ->
     ?Agent:exec(Pod, Command, Config);
 
 link(up, Pod, NetName, Config) ->
-    Command = cmd("ip link set ~s up", [name], Pod, NetName),
-    ?Agent:exec(Pod, Command, Config);
+    NeedUp = maps:get(up, pod_net_options(NetName, Pod), false),
+    NeedUp andalso begin
+        Command = cmd("ip link set ~s up", [name], Pod, NetName),
+        ?Agent:exec(Pod, Command, Config)
+    end;
 
 link(down, Pod, NetName, Config) ->
     Command = cmd("ip link set ~s down", [name], Pod, NetName),

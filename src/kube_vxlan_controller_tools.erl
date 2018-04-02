@@ -93,6 +93,9 @@ pod_net_add_option(Option, {NetName, NetOptions}) ->
 pod_read_net_option(Option) ->
     [Name|Value] = string:split(Option, "="),
     {list_to_atom(Name), case Value of
+        [] -> true;
+        ["true"] -> true;
+        ["false"] -> false;
         Value -> lists:flatten(Value)
      end}.
 
