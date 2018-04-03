@@ -25,11 +25,9 @@ pod(#{
       name := PodName,
       annotations := Annotations
     },
-    status := #{
-      containerStatuses := ContainerStatuses
-    } = Status
+    status := Status
 }, GlobalNetsOptions, Filters, Config) ->
-    IsAgentRunning = is_agent_running(ContainerStatuses, Config),
+    IsAgentRunning = is_agent_running(Status, Config),
     IsAgentRunning andalso begin
         NetsData = pod_nets_data(Annotations, Config),
         Pod = #{
@@ -107,11 +105,12 @@ pod_nets_apply_global_options(GlobalNetsOptions, Nets) ->
             {true, {NetName, MergedNetOptions}}
     end, Nets).
 
-is_agent_running(ContainerStatuses, Config) ->
+is_agent_running(Status, Config) ->
     ContainerName = maps:get(agent_container_name, Config),
+    ContainerStatuses = maps:get(containerStatuses, Status, []),
     pod_container_state(ContainerName, ContainerStatuses) == running.
 
-pod_container_state(_ContainerName, []) -> unknown;
+pod_container_state(_Name, []) -> unknown;
 pod_container_state(Name, Statuses) ->
     case [maps:keys(maps:get(state, Status)) || Status <- Statuses,
           maps:get(name, Status) == list_to_binary(Name)]
