@@ -14,6 +14,7 @@
     "~n"
     "Commands~n"
     "       run         Run the controller~n"
+    "       list        List specified resources or attributes~n"
     "       inspect     Print information about a desired entity~n"
     "       version     Print the controller version~n"
     "~n" ++
@@ -42,8 +43,11 @@
 ).
 
 -define(HelpInspect,
-    "kube-vxlan-controller inspect [Options] [Inspect Options]~n"
-    "~n" ++
+    "kube-vxlan-controller inspect <Subject> [Options] [Inspect Options]~n"
+    "~n"
+    "Subject~n"
+    "       networks~n" ++
+    "~n"
     ?UsageOptions ++
     "~n" ++
     "Inspect Options~n"
@@ -55,10 +59,21 @@
     "       will be used.~n"
 ).
 
+-define(HelpList,
+    "kube-vxlan-controller list <Subject> [Options]~n"
+    "~n"
+    "Subject~n"
+    "       pods~n" ++
+    "~n"
+    ?UsageOptions ++
+    "~n"
+).
+
 -define(Version, "Version ~s (git-~s)~n").
 
 args(AllArgs) -> case AllArgs of
     ["run"|Args] -> {run, read_args(Args)};
+    ["list", Subject|Args] -> {list, list_to_atom(Subject), read_args(Args)};
     ["inspect", Subject|Args] ->
         {inspect, list_to_atom(Subject), read_args(Args)};
     ["config"|Args] -> {config, read_args(Args)};
@@ -71,6 +86,7 @@ end.
 version({Vsn, GitSha}) -> lists:flatten(io_lib:format(?Version, [Vsn, GitSha])).
 
 help(run) -> ?HelpRun;
+help(list) -> ?HelpList;
 help(inspect) -> ?HelpInspect;
 help(_Command) -> ?Usage.
 
