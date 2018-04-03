@@ -91,7 +91,8 @@ bridges(Action, Pod, NetNames, TargetIp, Config) ->
     end, NetNames).
 
 bridge(append, Pod, NetName, TargetIp, Config) ->
-    BridgeExists = bridge_macs(Pod, NetName, TargetIp, Config) /= [],
+    BridgeMacs = bridge_macs(Pod, NetName, TargetIp, Config),
+    BridgeExists = lists:member("00:00:00:00:00:00", BridgeMacs),
     BridgeExists orelse begin
         Command = cmd("bridge fdb append to 00:00:00:00:00:00 dst ~s dev ~s",
                       [TargetIp, name], Pod, NetName),
