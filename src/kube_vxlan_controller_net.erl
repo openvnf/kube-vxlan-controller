@@ -10,6 +10,7 @@
 
     bridge_macs/4,
     vxlan_id/3,
+    ips/3,
 
     common_pod_net_names/2,
     pod_net_names/1,
@@ -121,6 +122,13 @@ vxlan_id(Pod, NetName, Config) ->
         ["vxlan", "id", Id|_] -> {ok, Id};
         _Other -> {error, not_found}
     end.
+
+ips(Pod, NetName, Config) ->
+    Command = cmd("ip addr show dev ~s", [name], Pod, NetName),
+    Result = ?Agent:exec(Pod, Command, Config),
+
+    [Ip || Line <- string:lexemes(Result, "\n"),
+     ["inet", Ip|_] <- [string:lexemes(Line, " ")]].
 
 common_pod_net_names(Pod1, Pod2) ->
     Pod2Nets = maps:get(nets, Pod2),
