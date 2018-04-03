@@ -12,6 +12,8 @@
 -define(Tools, kube_vxlan_controller_tools).
 -define(Format, kube_vxlan_controller_format).
 
+-define(Fields, ["pod", "net", "fdb", "dev", "route"]).
+
 networks(NetNames, Config) -> nets(NetNames, Config).
 
 nets(NetNames, Config) ->
@@ -32,20 +34,33 @@ show_pod(Pod = #{nets := Nets}, NetName, Config) ->
     is_map(PodNetOptions) andalso begin
         CommandFdb = ?Net:cmd("bridge fdb show dev ~s", [name], Pod, NetName),
         CommandDev = ?Net:cmd("ip -d addr show dev ~s", [name], Pod, NetName),
+        CommandRoute = ?Net:cmd("ip route show dev ~s", [name], Pod, NetName),
 
-        Fdb = ?Agent:exec(Pod, CommandFdb, Config),
-        Dev = ?Agent:exec(Pod, CommandDev, Config),
+        FormatFun = fun(Field) ->
+            [$ |Field] ++ ": ~s~n"
+        end,
+        ArgFun = fun
+            ("pod") -> ?Format:pod(Pod);
+            ("net") -> ?Format:pod_net_options(PodNetOptions);
+            ("fdb") ->
+                Fdb = ?Agent:exec(Pod, CommandFdb, Config),
+                string:trim(?Format:fdb(Fdb, 6));
+            ("dev") ->
+                Dev = ?Agent:exec(Pod, CommandDev, Config),
+                string:trim(?Format:dev(Dev, 6));
+            ("route") ->
+                Route = ?Agent:exec(Pod, CommandRoute, Config),
+                string:trim(?Format:route(Route, 8))
+        end,
 
-        Ident = 6,
-        io:format(
-            " pod: ~s~n"
-            " net: ~s~n"
-            " fdb: ~s~n"
-            " dev: ~s~n"
-            "~n", [
-            ?Format:pod(Pod),
-            ?Format:pod_net_options(PodNetOptions),
-            string:trim(?Format:fdb(Fdb, Ident)),
-            string:trim(?Format:dev(Dev, Ident))
-        ])
+        Fields = read_fields(maps:get(fields, Config)),
+        Format = lists:flatten(lists:map(FormatFun, Fields)) ++ "~n",
+        Args = lists:map(ArgFun, Fields),
+
+        io:format(Format, Args)
     end.
+
+read_fields("all") -> ?Fields;
+read_fields(Fields) ->
+    [Field || Field <- string:lexemes(Fields, ","),
+     lists:member(Field, ?Fields)].

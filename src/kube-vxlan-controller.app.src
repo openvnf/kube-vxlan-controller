@@ -19,6 +19,7 @@
         {annotation, "vxlan.default/networks"},
         {configmap_name, "kube-vxlan-controller"},
         {agent_container_name, "vxlan-controller-agent"},
-        {agent_init_container_name, "vxlan-controller-agent-init"}
+        {agent_init_container_name, "vxlan-controller-agent-init"},
+        {fields, "pod,net,fdb"}
     ]}
 ]}.

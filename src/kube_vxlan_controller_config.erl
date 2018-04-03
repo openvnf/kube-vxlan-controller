@@ -28,7 +28,8 @@
     configmap_name,
     agent_container_name,
     agent_init_container_name,
-    db_file
+    db_file,
+    fields
 ]).
 
 load() -> load(#{}).
