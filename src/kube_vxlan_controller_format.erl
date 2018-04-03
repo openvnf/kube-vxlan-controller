@@ -6,8 +6,9 @@
     pod_net/1,
     pod_net_options/1,
 
+    fdb/2,
     dev/2,
-    fdb/2
+    route/2
 ]).
 
 pod(#{namespace := Namespace, name := Name, ip := Ip}) ->
@@ -27,8 +28,8 @@ pod_net_options(Options) ->
 dev(Dev, Ident) ->
     format_list([L || [_,_,_|L] <- string:lexemes(Dev, "\n")], Ident).
 
-fdb(Fdb, Ident) ->
-    format_list(string:lexemes(Fdb, "\n"), Ident).
+fdb(Fdb, Ident) -> format_list(string:lexemes(Fdb, "\n"), Ident).
+route(Route, Ident) -> format_list(string:lexemes(Route, "\n"), Ident).
 
 format_list(List, Ident) ->
     IdentString = lists:duplicate(Ident, $ ),
