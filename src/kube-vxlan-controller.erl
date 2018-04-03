@@ -13,6 +13,7 @@ main(CliArgs) ->
         {run, Args} -> do(run, Args);
         {inspect, Subject, Args} -> do({inspect, Subject}, Args);
         {config, Args} -> do(config, Args);
+        {help, Command} -> io:format(?Cli:help(Command));
         version -> io:format(?Cli:version(?Config:version()));
         usage -> io:format(?Cli:usage())
     end.

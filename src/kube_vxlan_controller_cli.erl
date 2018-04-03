@@ -3,19 +3,23 @@
 -export([
     args/1,
 
-    usage/0,
-    version/1
+    version/1,
+    help/1,
+    usage/0
 ]).
 
 -define(Usage,
-    "Usage: kube-vxlan-controller run [Options]~n"
-    "       kube-vxlan-controller inspect <Subject> [Options]~n"
-    "       kube-vxlan-controller config [Options]~n"
-    "       kube-vxlan-controller version~n"
+    "Usage: kube-vxlan-controller <Command> [Options]~n"
+    "       kube-vxlan-controller help <Command>~n"
     "~n"
-    "Subject~n"
-    "       networks~n"
-    "~n"
+    "Commands~n"
+    "       run         Run the controller~n"
+    "       inspect     Print information about a desired entity~n"
+    "       version     Print the controller version~n"
+    "~n" ++
+    ?UsageOptions
+).
+-define(UsageOptions,
     "Options~n"
     "       --server=<Kubernetes API server>~n"
     "       --ca-cert-file=<filepath>~n"
@@ -31,6 +35,26 @@
     "       --db-file=<db file path>~n"
 ).
 
+-define(HelpRun,
+    "kube-vxlan-controller run [Options]~n"
+    "~n" ++
+    ?UsageOptions
+).
+
+-define(HelpInspect,
+    "kube-vxlan-controller inspect [Options] [Inspect Options]~n"
+    "~n" ++
+    ?UsageOptions ++
+    "~n" ++
+    "Inspect Options~n"
+    "       --fields=<Fields>~n"
+    "~n"
+    "Fields~n"
+    "       Any combination of 'pod,net,fdb,dev,route' comma separated~n"
+    "       or 'all' to include all of them. If not specified 'pod,net,fdb'~n"
+    "       will be used.~n"
+).
+
 -define(Version, "Version ~s (git-~s)~n").
 
 args(AllArgs) -> case AllArgs of
@@ -39,11 +63,18 @@ args(AllArgs) -> case AllArgs of
         {inspect, list_to_atom(Subject), read_args(Args)};
     ["config"|Args] -> {config, read_args(Args)};
     ["version"] -> version;
+    ["help", Command|_Args] -> {help, list_to_atom(Command)};
+    [Command, "help"|_Args] -> {help, list_to_atom(Command)};
     _Other -> usage
 end.
 
-usage() -> ?Usage.
 version({Vsn, GitSha}) -> lists:flatten(io_lib:format(?Version, [Vsn, GitSha])).
+
+help(run) -> ?HelpRun;
+help(inspect) -> ?HelpInspect;
+help(_Command) -> ?Usage.
+
+usage() -> ?Usage.
 
 read_args(Args) ->
     {Named, Ordered} = lists:foldl(fun read_arg/2, {#{}, []}, Args),
