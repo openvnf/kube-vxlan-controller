@@ -2,7 +2,7 @@
 
 Any pod in a [Kubernetes] cluster can become a [VXLAN] overlay network member by
 having a VXLAN type network interface set up and L2 peer forwarding entries
-specified.  This can be done automatically on pod creation by using the Kube
+specified. This can be done automatically on a pod creation by using the Kube
 VXLAN Controller. A pod could be configured to have any number of VXLAN
 interfaces, i.e. to be a member of any number of VXLAN Segments.
 
@@ -23,14 +23,11 @@ $ kubectl apply -f k8s.yaml
 To make a pod VXLAN enabled it should answer the following conditions:
 
 * have a "vxlan.travelping.com" label set to "true"
-* have a "vxlan.travelping.com/networks" annotation set to a list of networks
+* have a "vxlan.travelping.com/networks" annotation describing VXLAN networks
 * run a Kube VXLAN Controller Agent init container with the security context
 "NET_ADMIN" capability
 * run a Kube VXLAN Controller Agent sidecar container with the security context
 "NET_ADMIN" capability.
-
-A list of networks is a comma or new line separated values representing network
-name each.
 
 These conditions could be described in a single manifest:
 
@@ -66,50 +63,42 @@ $ kubectl patch deployment <name> -p "$(cat patch.yaml)"
 
 Or could be merged into a deployment manifest before creating it.
 
-In this example "vxeth0" and "vxeth1" are the list of VXLAN names that will be
-set up in a pod. The network interface created in a pod will have a specified
-VXLAN name. In this example case two interfaces "vxeth0" and "vxeth1" will be
-created.
+In this example "vxeth0" and "vxeth1" are the list of VXLAN network names that
+will be created in a pod. In this case the network interfaces created in a pod
+will have the same names as the specfied network names, i.e "vxeth0" and
+"vxeth1". This could be configured via "Network Options" (see below).
 
 ### VXLAN Network Identifier
 
 According to [VXLAN specification] during the setup process a VXLAN should be
 provided with a Segment ID or "VXLAN Network Identifier (VNI)". The controller
-does that automatically using the ID specified in the network options. The
-options could be defined either in the "kube-vxlan-controller" configmap
-or in the annotation (see "Network Configuration" below).
+does that automatically using the ID specified in the network options (see
+"Network Options" below).
 
-The manifest used in the "Deployment" section defines a configmap with initial
-set of options defining VXLAN name to VNI relations and could be edited using
-this command:
+### Network Options
+
+Network options define how the controller behaves setting up a particular
+network interface. Options could be defined in networks defining configmap
+or in a network defining annotation. Options defined in the configmap apply to
+all the VXLAN enabled pods in a cluster. Options defined in a pod annotation
+overrides that.
+
+Example of the options defined in the configmap:
+
 
 ```
-$ kubectl -n kube-system edit configmap kube-vxlan-controller
+data:
+  vxeth0: id=1000 dev=tun0
+  vxeth1: id=1001 up
 ```
 
-To add or remove a relation the "data" section needs to be changed only.
-
-### Network Configuration
-
-Networks could be customized with a set of parameters specified in annotation.
-The following parameters are supported:
-
-* type — network type (default: vxlan)
-* id — network identifier (default: according to the configmap)
-* name — network interface name (default: network name)
-* dev — device used to create a network (default: eth0)
-* up — set network interface up after creation (default: false)
-* ip — assign network interface a specified IP address (default: false)
-* route — create a route (default: false)
-
-Examples:
+Example of the options defined in a pod annotation:
 
 ```
 anntations:
   vxlan.travelping.com/networks: |
     vxeth0
       id=1000
-      dev=tun0
       ip=192.168.10.1/24
       route=192.168.10.0/24:192.168.100.1
     vxeth1
@@ -120,27 +109,65 @@ anntations:
   vxlan.travelping.com/networks: vxeth0 id=1000 dev=tun0, vxeth1
 ```
 
-When specified in annotation, a network is configured on a pod level. To set
-configuration on a cluster level, the network options configmap should be
-modified accordingly:
+The only mandatory option for now is "id" (VNI) and should be explicitly defined
+in either configmap or annotation.
+
+The manifest used in the "Deployment" section defines "kube-vxlan-controller"
+configmap with some options for networks named "vxlan[0-3]" including "id".
+Therefore, the example above with "vxeth0" and "vxeth1" networks works without
+complains about non-existing id.
+
+#### type
+
+Network interface type that will be created in a pod. Currently the "vxlan" one
+is only tested and supported and a default value, therefore usually should not
+be specified.
+
+#### id
+
+Defines network identified (VNI in case of VXLAN), mandatory, no default value.
+In case of VXLAN should be set to a numberic value.
+
+#### name
+
+Name of the actual network interface that will be created. Will be set to a
+network name if not specified.
+
+#### dev
+
+A pod network device used to create a network interface (default: "eth0").
+
+#### up
+
+Defines whether a created interface should be set up. Can be set to "true" or
+"false". Specifying without any value implies "true". If specified globaly in
+the configmap, could be overriden with "up=false".
+
+#### ip
+
+Defines an IP address that will be assigned to a created network interface.
+
+#### route
+
+Defines a route table rule that controller can create after an interface setup.
+The following example descibes how to create a rule routing a subnet
+"192.168.2.0/24" via the "192.168.1.1" gateway:
 
 ```
-data:
-  vxeth0: id=1000 dev=tun0
-  vxeth1: id=1001 up
+route=192.168.2.0/24:192.168.1.1
 ```
-
-A pod level configuration pair overrides a cluster level one.
 
 ## Controller Workflow
 
 The controller is subscribed to the pod events using the [Pod Watch API]. On the
-"Pod added" event the controller is looking for the network list annotation and
-sets up VXLAN networks according to it using the Agent init container. Thus the
-other init containers available in a pod can already work with the interfaces.
-Once the interfaces are set up, the controller sends a TERM signal to the main
-process of the Agent to let it terminate so that the pod could proceed with its
-creation.
+"pod added" event the controller is looking for the networks annotation and
+sets up networks according to it (and according to the networks configmap) using
+the Agent init container. Thus the other init containers available in a pod can
+already work with the interfaces.
+
+Once the network interfaces are created and configured according to the options,
+the controller sends a TERM signal to the main process of the Agent to let it
+terminate so that the pod could proceed with its creation.
 
 Once a pod is running the sidecar Agent container is used to configure fdb
 entries to set up configured networks peers forwarding. If added or removed pod
