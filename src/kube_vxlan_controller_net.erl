@@ -118,10 +118,9 @@ vxlan_id(Pod, NetName, Config) ->
     Command = cmd("ip -d link show ~s", [name], Pod, NetName),
     Result = ?Agent:exec(Pod, Command, Config),
 
-    case string:lexemes(hd(lists:reverse(string:lexemes(Result, "\n"))), " ") of
-        ["vxlan", "id", Id|_] -> {ok, Id};
-        _Other -> {error, not_found}
-    end.
+    List = [Id || Line <- string:lexemes(Result, "\n"),
+            ["vxlan", "id", Id|_] <- [string:lexemes(Line, " ")]],
+    List /= [] andalso {true, hd(List)}.
 
 ips(Pod, NetName, Config) ->
     Command = cmd("ip addr show dev ~s", [name], Pod, NetName),
