@@ -31,5 +31,5 @@ do(Action, {NamedArgs, OrderedArgs}) ->
     end.
 
 do(run, _Args, Config) -> ?Run:loop(Config);
-do({list, Subject}, _Args, Config) -> ?List:Subject(Config);
+do({list, Subject}, Args, Config) -> ?List:Subject(Args, Config);
 do({inspect, Subject}, Args, Config) -> ?Inspect:Subject(Args, Config).
