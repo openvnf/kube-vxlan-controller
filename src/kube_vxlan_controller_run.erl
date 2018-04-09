@@ -14,7 +14,13 @@
 -define(Tools, kube_vxlan_controller_tools).
 -define(Format, kube_vxlan_controller_format).
 
+-define(NodeName, 'kube-vxlan-controller@localhost').
+-define(Cookie, 'kube-vxlan-controller').
+
 loop(Config) ->
+    {ok, _Pid} = net_kernel:start([?NodeName, shortnames]),
+    erlang:set_cookie(node(), ?Cookie),
+
     Selector = maps:get(selector, Config),
     ResourceVersion = ?Db:load_resource_version(Selector, Config),
     State = ?State:set_resource_version(ResourceVersion, #{}),
