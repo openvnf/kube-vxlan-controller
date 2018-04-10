@@ -18,8 +18,10 @@
 -define(Cookie, 'kube-vxlan-controller').
 
 loop(Config) ->
-    {ok, _Pid} = net_kernel:start([?NodeName, shortnames]),
-    erlang:set_cookie(node(), ?Cookie),
+    case net_kernel:start([?NodeName, shortnames]) of
+        {ok, _Pid} -> erlang:set_cookie(node(), ?Cookie);
+        {error, _Reason} -> true
+    end,
 
     Selector = maps:get(selector, Config),
     ResourceVersion = ?Db:load_resource_version(Selector, Config),
