@@ -32,6 +32,7 @@ run: epmd-run
 
 join:
 	erl \
+		-start_epmd false \
 		-remsh $(PROJECT)@localhost \
 		-sname $(PROJECT)-$$RANDOM \
 		-setcookie $(PROJECT)
@@ -71,7 +72,7 @@ docker-release:
 
 docker-start:
 	docker run \
-		--rmd \
+		--rm -d \
 		--name $(PROJECT) \
 		-v ${PWD}/db:/db \
 		-v ${PWD}/pki:/pki \
