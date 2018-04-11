@@ -80,6 +80,9 @@ docker-start:
 docker-stop:
 	docker stop $(PROJECT)
 
+docker-logs:
+	docker logs -f $(PROJECT)
+
 docker-clean:
 	rm -f $(BUILD_DIR_IMAGE)/Dockerfile
 	$(MAKE) uninstall DEST_DIR=$(BUILD_DIR_IMAGE) PREFIX=
