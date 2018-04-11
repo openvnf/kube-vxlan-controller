@@ -33,7 +33,7 @@ run:
 join:
 	erl \
 		-remsh $(PROJECT)@localhost \
-		-sname $(PROJECT)_$$RANDOM \
+		-sname $(PROJECT)-$$RANDOM \
 		-setcookie $(PROJECT)
 
 install:
