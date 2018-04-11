@@ -64,6 +64,8 @@ spec:
           mountPath: /etc/kube-vxlan-controller
         - name: kube-vxlan-controller-db
           mountPath: /usr/share/kube-vxlan-controller
+      - name: epmd
+        image: aialferov/epmd:latest
       volumes:
       - name: kube-vxlan-controller-config
         configMap:

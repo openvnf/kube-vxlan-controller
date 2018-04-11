@@ -27,7 +27,7 @@ upgrade:
 	$(REBAR) upgrade
 	$(REBAR) unlock
 
-run:
+run: epmd-run
 	$(BIN_PATH_IN)/$(PROJECT) run
 
 join:
@@ -47,6 +47,9 @@ uninstall:
 clean:
 	$(REBAR) clean -a
 	$(REBAR) unlock
+
+epmd-run:
+	epmd -daemon
 
 git-release:
 	git tag -a v$(VERSION)
