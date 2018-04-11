@@ -69,12 +69,13 @@ docker-release:
 	docker tag $(USER)/$(PROJECT):$(VERSION) $(USER)/$(PROJECT):latest
 	docker push $(USER)/$(PROJECT):latest
 
-docker-run:
-	docker run --name $(PROJECT) --rm -it -v ${PWD}/pki:/pki \
-		$(USER)/$(PROJECT):$(VERSION) run
-
 docker-start:
-	docker run --name $(PROJECT) --rm -d -v ${PWD}/pki:/pki \
+	docker run \
+		--rmd \
+		--name $(PROJECT) \
+		-v ${PWD}/db:/db \
+		-v ${PWD}/pki:/pki \
+		-v ${PWD}/priv:/priv \
 		$(USER)/$(PROJECT):$(VERSION) run
 
 docker-stop:

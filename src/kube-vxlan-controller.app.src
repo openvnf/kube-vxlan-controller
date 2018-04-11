@@ -10,7 +10,7 @@
             "$(HOME)/.config/kube-vxlan-controller/config",
             "/etc/kube-vxlan-controller/config"
         ]},
-        {db_file, "kube-vxlan-controller.db"},
+        {db_file, "db/kube-vxlan-controller.db"},
         {server, "https://kubernetes.default"},
         {namespace_file, "/var/run/secrets/kubernetes.io/serviceaccount/namespace"},
         {ca_cert_file, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"},
