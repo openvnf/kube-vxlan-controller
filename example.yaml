@@ -1,8 +1,6 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  labels:
-    run: a
   name: a
 spec:
   template:
@@ -37,8 +35,6 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  labels:
-    run: b
   name: b
 spec:
   template:
@@ -73,8 +69,6 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  labels:
-    run: gw
   name: gw
 spec:
   template:
