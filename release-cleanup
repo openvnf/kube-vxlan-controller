@@ -2,12 +2,15 @@
 
 -mode(compile).
 
-main([LibPath, RelPath]) ->
-    DirsToDelete = deps(LibPath, RelPath) ++
-                   [RelPath ++ "/releases", RelPath ++ "/bin"],
-    lists:foreach(fun del_dir_r/1, DirsToDelete);
+-define(Usage, "Usage: release-cleanup <Lib path> <Rel path>~n").
 
-main(_) -> ok.
+main([LibPath, RelPath]) ->
+    lists:foreach(fun del_dir_r/1, dirs_to_delete(LibPath, RelPath));
+
+main(_) -> io:format(?Usage).
+
+dirs_to_delete(LibPath, RelPath) ->
+    deps(LibPath, RelPath) ++ [RelPath ++ "/releases", RelPath ++ "/bin"].
 
 deps(LibPath, RelPath) ->
     [dep(RelPath, Name, Opts) ||
