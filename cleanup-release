@@ -1,0 +1,30 @@
+#!/usr/bin/env escript
+
+-mode(compile).
+
+main([LibPath, RelPath]) ->
+    DirsToDelete = deps(LibPath, RelPath) ++
+                   [RelPath ++ "/releases", RelPath ++ "/bin"],
+    lists:foreach(fun del_dir_r/1, DirsToDelete);
+
+main(_) -> ok.
+
+deps(LibPath, RelPath) ->
+    [dep(RelPath, Name, Opts) ||
+     File <- filelib:wildcard(LibPath ++ "/*/ebin/*.app"),
+     {ok, [{application, Name, Opts}]} <- [file:consult(File)]].
+
+dep(RelPath, Name, Opts) ->
+    RelPath ++ "/lib/" ++ atom_to_list(Name) ++
+    [$-|proplists:get_value(vsn, Opts)].
+
+del_dir_r(Dir) ->
+    Files = filelib:wildcard(Dir ++ "/**"),
+    case lists:partition(fun filelib:is_dir/1, Files) of
+        {Dirs, Files} ->
+            io:format("Deleting ~s~n", [Dir]),
+            lists:foreach(fun file:delete/1, Files),
+            lists:foreach(fun file:del_dir/1, lists:reverse(lists:sort(Dirs))),
+            file:del_dir(Dir);
+        [] -> ok
+    end.
