@@ -19,8 +19,8 @@ dep(RelPath, Name, Opts) ->
     [$-|proplists:get_value(vsn, Opts)].
 
 del_dir_r(Dir) ->
-    Files = filelib:wildcard(Dir ++ "/**"),
-    case lists:partition(fun filelib:is_dir/1, Files) of
+    Paths = filelib:wildcard(Dir ++ "/**"),
+    case lists:partition(fun filelib:is_dir/1, Paths) of
         {Dirs, Files} ->
             io:format("Deleting ~s~n", [Dir]),
             lists:foreach(fun file:delete/1, Files),
