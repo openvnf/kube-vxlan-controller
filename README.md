@@ -149,9 +149,9 @@ Defines an IP address that will be assigned to a created network interface.
 
 #### route
 
-Defines a route table rule that controller can create after an interface setup.
-The following example descibes how to create a rule routing a subnet
-"192.168.2.0/24" via the "192.168.1.1" gateway:
+Defines a routing table rule that controller can create after an interface
+setup. The following example describes how to create a rule for routing to the 
+subnet "192.168.2.0/24" via the "192.168.1.1" gateway:
 
 ```
 route=192.168.2.0/24:192.168.1.1
@@ -179,17 +179,18 @@ container.
 
 ## Example
 
-A basic example might demonstrate how to send packets from pod "a" to pod "b"
-provided that the pods are in different VXLAN networks. This would require a
-gateway pod being a member of both network and routes set up on "a" and "b".
-To get the example running, run the following:
+A basic use case example demonstrates how to send packets from a pod "a" to 
+a pod "b" provided that the pods are in the different VXLAN networks. This would
+require a gateway pod being a member of the both networks and the routes set up
+on "a" and "b". To deploy the workloads for the example, run the following:
 
 ```
 $ kubectl apply -f example.yaml
 ```
 
-This creates deployments and corresponding pods "a", "b" and "gw" with VXLAN
-network and the corresponding network interfaces configured the following way:
+This creates deployments and the corresponding pods "a", "b" and "gw" with the
+VXLAN networks and the corresponding network interfaces configured the following
+way:
 
 - pod "a":
   - network: "vxeth0", IP: "192.168.10.2/29"
@@ -201,8 +202,8 @@ network and the corresponding network interfaces configured the following way:
   - network: "vxeth0", IP: "192.168.10.1/29"
   - network: "vxeth1", IP: "192.168.11.1/29"
 
-To check that example works as expected we can let ping pods each other's
-the corresponding IP addresses:
+To check that example works as expected we can ping one pod's VXLAN network
+interface from another pod and vice versa:
 
 ```
 $ POD_A=$(kubectl get po -l run=a -o jsonpath={.items[*].metadata.name})
