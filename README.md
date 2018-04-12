@@ -177,6 +177,46 @@ this network get the fdb entries table updated.
 The controller uses the "Pod Exec API" to execute commands in a pod via [Agent]
 container.
 
+## Example
+
+A basic example might demonstrate how to send packets from pod "a" to pod "b"
+provided that the pods are in different VXLAN networks. This would require a
+gateway pod being a member of both network and routes set up on "a" and "b".
+To get the example running, run the following:
+
+```
+$ kubectl apply -f example.yaml
+```
+
+This creates deployments and corresponding pods "a", "b" and "gw" with VXLAN
+network and the corresponding network interfaces configured the following way:
+
+- pod "a":
+  - network: "vxeth0", IP: "192.168.10.2/29"
+  - route: "192.168.11.0/29 via 192.168.10.1"
+- pod "b":
+  - network: "vxeth1", IP: "192.168.11.2/29"
+  - route: "192.168.10.0/29 via 192.168.11.1"
+- pod "gw":
+  - network: "vxeth0", IP: "192.168.10.1/29"
+  - network: "vxeth1", IP: "192.168.11.1/29"
+
+To check that example works as expected we can let ping pods each other's
+the corresponding IP addresses:
+
+```
+$ POD_A=$(kubectl get po -l run=a -o jsonpath={.items[*].metadata.name})
+$ POD_B=$(kubectl get po -l run=b -o jsonpath={.items[*].metadata.name})
+
+$ kubectl exec -it $POD_A -c a ping 192.168.11.2
+PING 192.168.11.2 (192.168.11.2): 56 data bytes
+64 bytes from 192.168.11.2: seq=0 ttl=63 time=0.082 ms
+
+$ kubectl exec -it $POD_B -c b ping 192.168.10.2
+PING 192.168.10.2 (192.168.10.2): 56 data bytes
+64 bytes from 192.168.10.2: seq=0 ttl=63 time=0.107 ms
+```
+
 ## Troubleshooting
 
 If a pod is not becoming a VXLAN network member or hangs in the agent init

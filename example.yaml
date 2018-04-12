@@ -1,0 +1,106 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: a
+  name: a
+spec:
+  template:
+    metadata:
+      annotations:
+        vxlan.travelping.com/networks: |
+          vxeth0
+            ip=192.168.10.2/29
+            route=192.168.11.0/29:192.168.10.1
+      labels:
+        run: a
+        vxlan.travelping.com: "true"
+    spec:
+      initContainers:
+      - image: aialferov/kube-vxlan-controller-agent
+        name: vxlan-controller-agent-init
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+      containers:
+      - image: aialferov/pause
+        imagePullPolicy: Always
+        name: a
+      - image: aialferov/kube-vxlan-controller-agent
+        name: vxlan-controller-agent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: b
+  name: b
+spec:
+  template:
+    metadata:
+      annotations:
+        vxlan.travelping.com/networks: |
+          vxeth1
+            ip=192.168.11.2/29
+            route=192.168.10.0/29:192.168.11.1
+      labels:
+        run: b
+        vxlan.travelping.com: "true"
+    spec:
+      initContainers:
+      - image: aialferov/kube-vxlan-controller-agent
+        name: vxlan-controller-agent-init
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+      containers:
+      - image: aialferov/pause
+        imagePullPolicy: Always
+        name: b
+      - image: aialferov/kube-vxlan-controller-agent
+        name: vxlan-controller-agent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: gw
+  name: gw
+spec:
+  template:
+    metadata:
+      annotations:
+        vxlan.travelping.com/networks: |
+          vxeth0 ip=192.168.10.1/29
+          vxeth1 ip=192.168.11.1/29
+      labels:
+        run: gw
+        vxlan.travelping.com: "true"
+    spec:
+      initContainers:
+      - image: aialferov/kube-vxlan-controller-agent
+        name: vxlan-controller-agent-init
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+      containers:
+      - image: aialferov/pause
+        imagePullPolicy: Always
+        name: gw
+      - image: aialferov/kube-vxlan-controller-agent
+        name: vxlan-controller-agent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
