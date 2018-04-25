@@ -8,6 +8,7 @@ spec:
       annotations:
         vxlan.travelping.com/networks: |
           vxeth0
+            up
             ip=192.168.10.2/29
             route=192.168.11.0/29:192.168.10.1
       labels:
@@ -42,6 +43,7 @@ spec:
       annotations:
         vxlan.travelping.com/networks: |
           vxeth1
+            up
             ip=192.168.11.2/29
             route=192.168.10.0/29:192.168.11.1
       labels:
@@ -75,8 +77,8 @@ spec:
     metadata:
       annotations:
         vxlan.travelping.com/networks: |
-          vxeth0 ip=192.168.10.1/29
-          vxeth1 ip=192.168.11.1/29
+          vxeth0 up ip=192.168.10.1/29
+          vxeth1 up ip=192.168.11.1/29
       labels:
         run: gw
         vxlan.travelping.com: "true"
