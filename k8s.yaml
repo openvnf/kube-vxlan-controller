@@ -55,6 +55,8 @@ spec:
         run: kube-vxlan-controller
     spec:
       containers:
+      - name: epmd
+        image: aialferov/epmd:latest
       - name: kube-vxlan-controller
         image: aialferov/kube-vxlan-controller:latest
         args:
@@ -64,8 +66,6 @@ spec:
           mountPath: /etc/kube-vxlan-controller
         - name: kube-vxlan-controller-db
           mountPath: /usr/share/kube-vxlan-controller
-      - name: epmd
-        image: aialferov/epmd:latest
       volumes:
       - name: kube-vxlan-controller-config
         configMap:
