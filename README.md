@@ -95,7 +95,7 @@ data:
 Example of the options defined in a pod annotation:
 
 ```
-anntations:
+annotations:
   vxlan.travelping.com/networks: |
     vxeth0
       id=1000
@@ -105,7 +105,7 @@ anntations:
       up=false
 ```
 ```
-anntations:
+annotations:
   vxlan.travelping.com/networks: vxeth0 id=1000 dev=tun0, vxeth1
 ```
 
