@@ -5,15 +5,15 @@ metadata:
 spec:
   template:
     metadata:
-      annotations:
-        vxlan.travelping.com/networks: |
-          vxeth0
-            up
-            ip=192.168.10.2/29
-            route=192.168.11.0/29:192.168.10.1
       labels:
         run: a
         vxlan.travelping.com: "true"
+      annotations:
+        vxlan.travelping.com/networks: |
+          vxeth1
+            up
+            ip=192.168.11.2/29
+            route=192.168.12.0/29:192.168.11.1
     spec:
       initContainers:
       - image: aialferov/kube-vxlan-controller-agent
@@ -40,15 +40,15 @@ metadata:
 spec:
   template:
     metadata:
-      annotations:
-        vxlan.travelping.com/networks: |
-          vxeth1
-            up
-            ip=192.168.11.2/29
-            route=192.168.10.0/29:192.168.11.1
       labels:
         run: b
         vxlan.travelping.com: "true"
+      annotations:
+        vxlan.travelping.com/networks: |
+          vxeth2
+            up
+            ip=192.168.12.2/29
+            route=192.168.11.0/29:192.168.12.1
     spec:
       initContainers:
       - image: aialferov/kube-vxlan-controller-agent
@@ -75,13 +75,13 @@ metadata:
 spec:
   template:
     metadata:
-      annotations:
-        vxlan.travelping.com/networks: |
-          vxeth0 up ip=192.168.10.1/29
-          vxeth1 up ip=192.168.11.1/29
       labels:
         run: gw
         vxlan.travelping.com: "true"
+      annotations:
+        vxlan.travelping.com/networks: |
+          vxeth1 up ip=192.168.11.1/29
+          vxeth2 up ip=192.168.12.1/29
     spec:
       initContainers:
       - image: aialferov/kube-vxlan-controller-agent
