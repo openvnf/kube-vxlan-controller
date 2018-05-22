@@ -11,11 +11,11 @@ interfaces, i.e. to be a member of any number of VXLAN Segments.
 The controller monitors pods using the [Kubernetes API] and could run as a
 standalone application provided with a desired cluster API access. But the most
 simple way is to run it as a part of the Kubernetes cluster itself, for example
-as a Kubernetes deployment. To deploy it this way execute the following command
-(from a root folder of this repository copy):
+as a Kubernetes deployment. This repository provides a [Bundle Manifest] to
+create such a deployment and related workloads:
 
 ```
-$ kubectl apply -f k8s.yaml
+$ kubectl apply -f kubernetes/bundle.yaml
 ```
 
 ## Usage
@@ -182,10 +182,10 @@ container.
 A basic use case example demonstrates how to send packets from a pod "a" to 
 a pod "b" provided that the pods are in the different VXLAN networks. This would
 require a gateway pod being a member of the both networks and the routes set up
-on "a" and "b". To deploy the workloads for the example, run the following:
+on "a" and "b". Use [Example Manifest] to create example workloads:
 
 ```
-$ kubectl apply -f example.yaml
+$ kubectl create -f kubernetes/example.yaml
 ```
 
 This creates deployments and the corresponding pods "a", "b" and "gw" with the
@@ -233,3 +233,5 @@ script of this repository.
 [VXLAN specification]: https://tools.ietf.org/html/rfc7348#section-4
 [Agent]: https://gitlab.tpip.net/aalferov/kube-vxlan-controller-agent
 [scripts/check.sh]: https://gitlab.tpip.net/aalferov/kube-vxlan-controller/raw/master/scripts/check.sh
+[Example Manifest]: kubernetes/example.yaml
+[Bundle Manifest]: kubernetes/bundle.yaml
