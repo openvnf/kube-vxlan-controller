@@ -16,7 +16,7 @@ spec:
             route=192.168.12.0/29:192.168.11.1
     spec:
       initContainers:
-      - image: aialferov/kube-vxlan-controller-agent
+      - image: openvnf/kube-vxlan-controller-agent
         name: vxlan-controller-agent-init
         securityContext:
           capabilities:
@@ -26,7 +26,7 @@ spec:
       - image: aialferov/pause
         imagePullPolicy: Always
         name: a
-      - image: aialferov/kube-vxlan-controller-agent
+      - image: openvnf/kube-vxlan-controller-agent
         name: vxlan-controller-agent
         securityContext:
           capabilities:
@@ -51,7 +51,7 @@ spec:
             route=192.168.11.0/29:192.168.12.1
     spec:
       initContainers:
-      - image: aialferov/kube-vxlan-controller-agent
+      - image: openvnf/kube-vxlan-controller-agent
         name: vxlan-controller-agent-init
         securityContext:
           capabilities:
@@ -61,7 +61,7 @@ spec:
       - image: aialferov/pause
         imagePullPolicy: Always
         name: b
-      - image: aialferov/kube-vxlan-controller-agent
+      - image: openvnf/kube-vxlan-controller-agent
         name: vxlan-controller-agent
         securityContext:
           capabilities:
@@ -84,7 +84,7 @@ spec:
           vxeth2 up ip=192.168.12.1/29
     spec:
       initContainers:
-      - image: aialferov/kube-vxlan-controller-agent
+      - image: openvnf/kube-vxlan-controller-agent
         name: vxlan-controller-agent-init
         securityContext:
           capabilities:
@@ -94,7 +94,7 @@ spec:
       - image: aialferov/pause
         imagePullPolicy: Always
         name: gw
-      - image: aialferov/kube-vxlan-controller-agent
+      - image: openvnf/kube-vxlan-controller-agent
         name: vxlan-controller-agent
         securityContext:
           capabilities:

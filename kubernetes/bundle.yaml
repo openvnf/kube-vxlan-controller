@@ -58,7 +58,7 @@ spec:
       - name: epmd
         image: aialferov/epmd:20.3.2
       - name: kube-vxlan-controller
-        image: aialferov/kube-vxlan-controller:0.9.3
+        image: openvnf/kube-vxlan-controller:0.9.3
         args:
         - run
         volumeMounts:

@@ -33,7 +33,7 @@ check "Checking agent init container name..." \
     '{.spec.initContainers[*].name}' vxlan-controller-agent-init
 
 check "Checking agent init container image..." \
-    '{.spec.initContainers[*].image}' aialferov/kube-vxlan-controller-agent
+    '{.spec.initContainers[*].image}' openvnf/kube-vxlan-controller-agent
 
 check "Checking agent init container capabilities..." \
     '{.spec.initContainers[*].securityContext.capabilities.add}' NET_ADMIN
@@ -42,7 +42,7 @@ check "Checking agent container name..." \
     '{.spec.containers[*].name}' vxlan-controller-agent
 
 check "Checking agent container image..." \
-    '{.spec.containers[*].image}' aialferov/kube-vxlan-controller-agent
+    '{.spec.containers[*].image}' openvnf/kube-vxlan-controller-agent
 
 check "Checking agent container capabilities..." \
     '{.spec.containers[*].securityContext.capabilities.add}' NET_ADMIN

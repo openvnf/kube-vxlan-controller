@@ -42,13 +42,13 @@ spec:
     spec:
       initContainers:
       - name: vxlan-controller-agent-init
-        image: aialferov/kube-vxlan-controller-agent
+        image: openvnf/kube-vxlan-controller-agent
         securityContext:
           capabilities:
             add: ["NET_ADMIN"]
       containers:
       - name: vxlan-controller-agent
-        image: aialferov/kube-vxlan-controller-agent
+        image: openvnf/kube-vxlan-controller-agent
         securityContext:
           capabilities:
             add: ["NET_ADMIN"]
@@ -231,7 +231,7 @@ script of this repository.
 [Pod Watch API]: https://v1-8.docs.kubernetes.io/docs/api-reference/v1.8/#watch-64
 [VXLAN]: https://tools.ietf.org/html/rfc7348
 [VXLAN specification]: https://tools.ietf.org/html/rfc7348#section-4
-[Agent]: https://gitlab.tpip.net/aalferov/kube-vxlan-controller-agent
-[scripts/check.sh]: https://gitlab.tpip.net/aalferov/kube-vxlan-controller/raw/master/scripts/check.sh
+[Agent]: https://github.com/openvnf/kube-vxlan-controller-agent
+[scripts/check.sh]: scripts/check.sh
 [Example Manifest]: kubernetes/example.yaml
 [Bundle Manifest]: kubernetes/bundle.yaml

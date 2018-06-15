@@ -1,4 +1,4 @@
-USER = aialferov
+USER = openvnf
 PROJECT = kube-vxlan-controller
 
 VERSION = $(shell cat src/$(PROJECT).app.src | grep vsn | cut -d\" -f2)
