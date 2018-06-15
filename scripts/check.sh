@@ -50,5 +50,5 @@ check "Checking agent container capabilities..." \
 echo "Done."
 echo
 echo "The pod is VXLAN enabled and is a member of the following networks:"
-$kubectl='{.metadata.annotations.vxlan\.travelping\.com\/names}'
+$kubectl='{.metadata.annotations.vxlan\.openvnf\.org\/names}'
 echo

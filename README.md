@@ -22,8 +22,8 @@ $ kubectl apply -f kubernetes/bundle.yaml
 
 To make a pod VXLAN enabled it should answer the following conditions:
 
-* have a "vxlan.travelping.com" label set to "true"
-* have a "vxlan.travelping.com/networks" annotation describing VXLAN networks
+* have a "vxlan.openvnf.org" label set to "true"
+* have a "vxlan.openvnf.org/networks" annotation describing VXLAN networks
 * run a Kube VXLAN Controller Agent init container with the security context
 "NET_ADMIN" capability
 * run a Kube VXLAN Controller Agent sidecar container with the security context
@@ -36,9 +36,9 @@ spec:
   template:
     metadata:
       labels:
-        vxlan.travelping.com: "true"
+        vxlan.openvnf.org: "true"
       annotations:
-        vxlan.travelping.com/networks: vxeth0, vxeth1
+        vxlan.openvnf.org/networks: vxeth0, vxeth1
     spec:
       initContainers:
       - name: vxlan-controller-agent-init
@@ -96,7 +96,7 @@ Example of the options defined in a pod annotation:
 
 ```
 annotations:
-  vxlan.travelping.com/networks: |
+  vxlan.openvnf.org/networks: |
     vxeth0
       id=1000
       ip=192.168.10.1/24
@@ -106,7 +106,7 @@ annotations:
 ```
 ```
 annotations:
-  vxlan.travelping.com/networks: vxeth0 id=1000 dev=tun0, vxeth1
+  vxlan.openvnf.org/networks: vxeth0 id=1000 dev=tun0, vxeth1
 ```
 
 The only mandatory option for now is "id" (VNI) and should be explicitly defined

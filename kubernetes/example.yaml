@@ -7,9 +7,9 @@ spec:
     metadata:
       labels:
         run: a
-        vxlan.travelping.com: "true"
+        vxlan.openvnf.org: "true"
       annotations:
-        vxlan.travelping.com/networks: |
+        vxlan.openvnf.org/networks: |
           vxeth1
             up
             ip=192.168.11.2/29
@@ -42,9 +42,9 @@ spec:
     metadata:
       labels:
         run: b
-        vxlan.travelping.com: "true"
+        vxlan.openvnf.org: "true"
       annotations:
-        vxlan.travelping.com/networks: |
+        vxlan.openvnf.org/networks: |
           vxeth2
             up
             ip=192.168.12.2/29
@@ -77,9 +77,9 @@ spec:
     metadata:
       labels:
         run: gw
-        vxlan.travelping.com: "true"
+        vxlan.openvnf.org: "true"
       annotations:
-        vxlan.travelping.com/networks: |
+        vxlan.openvnf.org/networks: |
           vxeth1 up ip=192.168.11.1/29
           vxeth2 up ip=192.168.12.1/29
     spec:

@@ -37,8 +37,8 @@ data:
   config: |
     [{'kube-vxlan-controller', [
         {db_file, "/usr/share/kube-vxlan-controller/db"},
-        {selector, "vxlan.travelping.com"},
-        {annotation, "vxlan.travelping.com/networks"}
+        {selector, "vxlan.openvnf.org"},
+        {annotation, "vxlan.openvnf.org/networks"}
     ]}].
 ---
 apiVersion: extensions/v1beta1
