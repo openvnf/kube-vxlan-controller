@@ -15,7 +15,7 @@ as a Kubernetes deployment. This repository provides a [Bundle Manifest] to
 create such a deployment and related workloads:
 
 ```
-$ kubectl apply -f kubernetes/bundle.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/openvnf/kube-vxlan-controller/master/kubernetes/bundle.yaml
 ```
 
 ## Usage
@@ -185,7 +185,7 @@ require a gateway pod being a member of the both networks and the routes set up
 on "a" and "b". Use [Example Manifest] to create example workloads:
 
 ```
-$ kubectl create -f kubernetes/example.yaml
+$ kubectl create -f https://raw.githubusercontent.com/openvnf/kube-vxlan-controller/master/kubernetes/example.yaml
 ```
 
 This creates deployments and the corresponding pods "a", "b" and "gw" with the
