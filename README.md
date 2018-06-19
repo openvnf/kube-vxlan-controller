@@ -227,8 +227,8 @@ script of this repository.
 
 <!-- Links -->
 [Kubernetes]: https://kubernetes.io
-[Kubernetes API]: https://kubernetes.io/docs/reference/api-overview
-[Pod Watch API]: https://v1-8.docs.kubernetes.io/docs/api-reference/v1.8/#watch-64
+[Kubernetes API]: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10
+[Pod Watch API]: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#watch-64
 [VXLAN]: https://tools.ietf.org/html/rfc7348
 [VXLAN specification]: https://tools.ietf.org/html/rfc7348#section-4
 [Agent]: https://github.com/openvnf/kube-vxlan-controller-agent
