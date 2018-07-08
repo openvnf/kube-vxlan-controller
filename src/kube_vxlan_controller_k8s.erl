@@ -99,7 +99,7 @@ ws_close(Socket) -> ewsc:close(Socket).
 ws_recv(Socket) -> ws_recv(Socket, <<"">>).
 
 ws_recv(Socket, Acc) ->
-    case ewsc:recv(Socket) of
+    case ewsc:recv(Socket, 5000) of
         {ok, [close|Messages]} ->
             {ok, binary_to_list(ws_append_messages(Acc, Messages))};
         {ok, Messages} ->
