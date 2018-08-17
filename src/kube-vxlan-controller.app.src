@@ -1,7 +1,7 @@
 {application, 'kube-vxlan-controller', [
     {description, "Kubernetes VXLAN contoller"},
     {id, "kube-vxlan-controller"},
-    {vsn, "0.9.4"},
+    {vsn, "0.9.5"},
     {modules, []},
     {applications, [kernel, stdlib, cpflib, hackney, ewsc, jsx]},
     {env, [

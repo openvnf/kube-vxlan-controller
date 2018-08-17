@@ -81,7 +81,7 @@ Network options define how the controller behaves setting up a particular
 network interface. Options could be defined in networks defining configmap
 or in a network defining annotation. Options defined in the configmap apply to
 all the VXLAN enabled pods in a cluster. Options defined in a pod annotation
-overrides that.
+overrides that for the pod.
 
 Example of the options defined in the configmap:
 
@@ -98,7 +98,6 @@ Example of the options defined in a pod annotation:
 annotations:
   vxlan.openvnf.org/networks: |
     vxeth0
-      id=1000
       ip=192.168.10.1/24
       route=192.168.10.0/24:192.168.100.1
     vxeth1
@@ -106,7 +105,7 @@ annotations:
 ```
 ```
 annotations:
-  vxlan.openvnf.org/networks: vxeth0 id=1000 dev=tun0, vxeth1
+  vxlan.openvnf.org/networks: vxeth0 dev=tun0, vxeth1
 ```
 
 The only mandatory option for now is "id" (VNI) and should be explicitly defined
@@ -125,8 +124,9 @@ be specified.
 
 #### id
 
-Defines network identified (VNI in case of VXLAN), mandatory, no default value.
-In case of VXLAN should be set to a numberic value.
+Defines network identified (VNI in case of VXLAN). Mandatory, no default value.
+Usually should be specified in the configmap. Specify it in a pod annotation
+if you know what you do only.
 
 #### name
 
@@ -218,13 +218,6 @@ PING 192.168.10.2 (192.168.10.2): 56 data bytes
 64 bytes from 192.168.10.2: seq=0 ttl=63 time=0.107 ms
 ```
 
-## Troubleshooting
-
-If a pod is not becoming a VXLAN network member or hangs in the agent init
-container it is possible to check if the pod answers the membership
-requirements. This could be done automatically using the [scripts/check.sh]
-script of this repository.
-
 <!-- Links -->
 [Kubernetes]: https://kubernetes.io
 [Kubernetes API]: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10
@@ -232,6 +225,5 @@ script of this repository.
 [VXLAN]: https://tools.ietf.org/html/rfc7348
 [VXLAN specification]: https://tools.ietf.org/html/rfc7348#section-4
 [Agent]: https://github.com/openvnf/kube-vxlan-controller-agent
-[scripts/check.sh]: scripts/check.sh
 [Example Manifest]: kubernetes/example.yaml
 [Bundle Manifest]: kubernetes/bundle.yaml
