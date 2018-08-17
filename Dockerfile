@@ -1,5 +1,10 @@
-FROM aialferov/alpinerl
+FROM aialferov/r3tmpl AS builder
 
-ADD bin /bin
+COPY . src
+RUN make -C src docker-ready DESTDIR=/build
 
-ENTRYPOINT ["/bin/kube-vxlan-controller"]
+FROM aialferov/erlang-ready:basic
+
+COPY --from=builder /build /
+
+ENTRYPOINT ["/usr/local/bin/kube-vxlan-controller"]
