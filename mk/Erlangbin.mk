@@ -1,8 +1,5 @@
 include mk/Erlanglib.mk
 
-BASE_PATH = $(shell QUIET=1 $(REBAR) path --base)
-PLUGIN_BEAMS = $(BASE_PATH)/plugins/*/ebin/*.beam
-
 PREFIX = usr/local
 
 BINDIR = bin
