@@ -6,6 +6,11 @@ BINDIR = bin
 BIN_PATH = $(DESTDIR)/$(PREFIX)/$(BINDIR)
 BIN_PATH_IN = $(BASE_PATH)/bin
 
+ERL_PATH = $(BASE_PATH)/erl
+
+clean: clean-lib clean-plugin
+	rm -f $(BIN_PATH_IN)/$(PROJECT)
+
 install:
 	mkdir -p $(BIN_PATH)
 	install -p $(BIN_PATH_IN)/$(PROJECT) $(BIN_PATH)
@@ -24,15 +29,14 @@ join:
 		-sname $(PROJECT)-$$RANDOM \
 		-setcookie $(PROJECT)
 
-erlang-compile: compile
+erlang: compile
 	$(REBAR) erlang
 	$(REBAR) unlock
 
 erlang-clean:
-	rm -rf _build/default/erl
+	rm -rf $(ERL_PATH)
 
 erlang-install:
-	$(MAKE) -C _build/default/erl install DESTDIR=$(DESTDIR) PREFIX=$(PREFIX)
+	$(MAKE) -C $(ERL_PATH) install DESTDIR=$(DESTDIR) PREFIX=$(PREFIX)
 
-docker-ready: clean compile install \
-              erlang-clean erlang-compile erlang-install
+package-ready: clean erlang-clean erlang install erlang-install

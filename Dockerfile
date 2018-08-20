@@ -1,7 +1,7 @@
 FROM aialferov/r3tmpl AS builder
 
 COPY . src
-RUN make -C src docker-ready DESTDIR=/build
+RUN make -C src package-ready DESTDIR=/build
 
 FROM aialferov/erlang-ready:basic
 

@@ -10,7 +10,7 @@ docker-push:
 docker-release: docker-release-local
 	docker push $(IMAGE_LATEST)
 
-docker-release-local:
+docker-local-release:
 	docker tag $(IMAGE) $(IMAGE_LATEST)
 
 docker-run:
@@ -52,7 +52,7 @@ docker-logs-f:
 	docker logs -f $(PROJECT)
 
 docker-clean:
-	docker rmi $(IMAGE)
+	docker rmi $(IMAGE) 2>/dev/null || true
 
 docker-distclean: docker-clean
-	docker rmi $(IMAGE_LATEST)
+	docker rmi $(IMAGE_LATEST) 2>/dev/null || true
