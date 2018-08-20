@@ -55,8 +55,6 @@ spec:
         run: kube-vxlan-controller
     spec:
       containers:
-      - name: epmd
-        image: aialferov/epmd:20.3.2
       - name: kube-vxlan-controller
         image: openvnf/kube-vxlan-controller:0.9.5
         args:
