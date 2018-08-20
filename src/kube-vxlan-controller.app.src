@@ -3,7 +3,7 @@
     {id, "kube-vxlan-controller"},
     {vsn, "0.9.5"},
     {modules, []},
-    {applications, [kernel, stdlib, cpflib, hackney, ewsc, jsx]},
+    {applications, [kernel, stdlib, inets, cpflib, hackney, ewsc, jsx]},
     {env, [
         {config_files, [
             "priv/kube-vxlan-controller.config",
