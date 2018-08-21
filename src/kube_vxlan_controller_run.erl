@@ -35,7 +35,6 @@ loop(Config, State) ->
         false ->
             ?Log:info("Watching pods (selector: ~s) from version: ~s",
                       [Selector, ResourceVersion]),
-            ?Db:save_resource_version(Selector, ResourceVersion, Config),
             ?State:set_resource_version_shown(State)
     end,
 
@@ -68,6 +67,11 @@ process_event_fun(Config) -> fun(Event, State) ->
     ?Log:info("~s~n~p", [EventType, Resource]),
 
     NewState = ?State:set_resource_version(Resource, State),
+    ResourceVersion = ?State:resource_version(NewState),
+
+    Selector = maps:get(selector, Config),
+    ?Db:save_resource_version(Selector, ResourceVersion, Config),
+
     process_event(EventType, Resource, Config, NewState)
 end.
 
@@ -75,7 +79,8 @@ process_event(pod_added, Pod, _Config, State) ->
     ?State:set(pod_added, Pod, State);
 
 process_event(pod_deleted, Pod, _Config, State) ->
-    ?State:unset(agent_terminated, Pod, State);
+    ?State:unset(pod_added, Pod,
+    ?State:unset(agent_terminated, Pod, State));
 
 process_event(pod_modified, Pod = #{init_agent := running}, Config, State) ->
     UseInitAgentConfig = maps:put(
