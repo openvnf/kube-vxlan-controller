@@ -4,9 +4,12 @@ IMAGE_LATEST = $(USER)/$(PROJECT):latest
 ifndef DOCKER_RUN_ARGS
 	DOCKER_RUN_ARGS = -it --rm --name $(PROJECT) $(DOCKER_RUN_ARGS_EXTRA)
 endif
+ifndef DOCKER_BUILD_ARGS
+	DOCKER_BUILD_ARGS = $(DOCKER_BUILD_ARGS_EXTRA) . -t $(IMAGE)
+endif
 
 docker-build:
-	docker build . -t $(IMAGE)
+	docker build $(DOCKER_BUILD_ARGS)
 
 docker-push:
 	docker push $(IMAGE)
