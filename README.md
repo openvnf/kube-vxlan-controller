@@ -193,14 +193,14 @@ VXLAN networks and the corresponding network interfaces configured the following
 way:
 
 - pod "a":
-  - network: "vxeth0", IP: "192.168.10.2/29"
+  - network: "vxeth1", IP: "192.168.11.2/29"
   - route: "192.168.11.0/29 via 192.168.10.1"
 - pod "b":
-  - network: "vxeth1", IP: "192.168.11.2/29"
+  - network: "vxeth2", IP: "192.168.12.2/29"
   - route: "192.168.10.0/29 via 192.168.11.1"
 - pod "gw":
-  - network: "vxeth0", IP: "192.168.10.1/29"
   - network: "vxeth1", IP: "192.168.11.1/29"
+  - network: "vxeth2", IP: "192.168.12.1/29"
 
 To check that example works as expected we can ping one pod's VXLAN network
 interface from another pod and vice versa:
@@ -209,13 +209,13 @@ interface from another pod and vice versa:
 $ POD_A=$(kubectl get po -l run=a -o jsonpath={.items[*].metadata.name})
 $ POD_B=$(kubectl get po -l run=b -o jsonpath={.items[*].metadata.name})
 
-$ kubectl exec -it $POD_A -c a ping 192.168.11.2
-PING 192.168.11.2 (192.168.11.2): 56 data bytes
-64 bytes from 192.168.11.2: seq=0 ttl=63 time=0.082 ms
+$ kubectl exec -it $POD_A -c a ping 192.168.12.2
+PING 192.168.12.2 (192.168.12.2): 56 data bytes
+64 bytes from 192.168.12.2: seq=0 ttl=63 time=0.082 ms
 
-$ kubectl exec -it $POD_B -c b ping 192.168.10.2
-PING 192.168.10.2 (192.168.10.2): 56 data bytes
-64 bytes from 192.168.10.2: seq=0 ttl=63 time=0.107 ms
+$ kubectl exec -it $POD_B -c b ping 192.168.11.2
+PING 192.168.11.2 (192.168.11.2): 56 data bytes
+64 bytes from 192.168.11.2: seq=0 ttl=63 time=0.107 ms
 ```
 
 <!-- Links -->
