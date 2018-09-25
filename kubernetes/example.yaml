@@ -11,7 +11,6 @@ spec:
       annotations:
         vxlan.openvnf.org/networks: |
           vxeth1
-            up
             ip=192.168.11.2/29
             route=192.168.12.0/29:192.168.11.1
     spec:
@@ -46,7 +45,6 @@ spec:
       annotations:
         vxlan.openvnf.org/networks: |
           vxeth2
-            up
             ip=192.168.12.2/29
             route=192.168.11.0/29:192.168.12.1
     spec:
@@ -80,8 +78,8 @@ spec:
         vxlan.openvnf.org: "true"
       annotations:
         vxlan.openvnf.org/networks: |
-          vxeth1 up ip=192.168.11.1/29
-          vxeth2 up ip=192.168.12.1/29
+          vxeth1 ip=192.168.11.1/29
+          vxeth2 ip=192.168.12.1/29
     spec:
       initContainers:
       - image: openvnf/kube-vxlan-controller-agent
