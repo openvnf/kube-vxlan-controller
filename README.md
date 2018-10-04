@@ -1,5 +1,7 @@
 # Kube VXLAN Controller
 
+[![GitHub Release Badge]][GitHub Releases]
+
 Any pod in a [Kubernetes] cluster can become a [VXLAN] overlay network member by
 having a VXLAN type network interface set up and L2 peer forwarding entries
 specified. This can be done automatically on a pod creation by using the Kube
@@ -227,3 +229,7 @@ PING 192.168.11.2 (192.168.11.2): 56 data bytes
 [Agent]: https://github.com/openvnf/kube-vxlan-controller-agent
 [Example Manifest]: kubernetes/example.yaml
 [Bundle Manifest]: kubernetes/bundle.yaml
+[GitHub Releases]: https://github.com/openvnf/kube-vxlan-controller/releases
+
+<!-- Badges -->
+[GitHub Release Badge]: https://img.shields.io/github/release/openvnf/kube-vxlan-controller/all.svg?style=flat-square
