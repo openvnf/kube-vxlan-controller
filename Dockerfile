@@ -1,4 +1,4 @@
-ARG ERLANG_VERSION=21.0.5
+ARG ERLANG_VERSION=21.1
 FROM aialferov/erlang:$ERLANG_VERSION AS builder
 LABEL project=kube-vxlan-controller
 
