@@ -118,11 +118,10 @@ read_event(#{
     type := Type,
     object := #{
       kind := Kind,
-      metadata := #{
+      metadata := Metadata = #{
         namespace := Namespace,
         uid := PodUid,
         name := PodName,
-        annotations := Annotations,
         resourceVersion := ResourceVersion
       },
       status := Status = #{
@@ -136,7 +135,10 @@ read_event(#{
       pod_uid => binary_to_list(PodUid),
       pod_name => binary_to_list(PodName),
       pod_ip => binary_to_list(maps:get(podIP, Status, <<>>)),
-      nets_data => ?Tools:pod_nets_data(Annotations, Config),
+      nets_data => ?Tools:pod_nets_data(
+          maps:get(annotations, Metadata, #{}),
+          Config
+      ),
       phase => binary_to_list(Phase),
       agent => ?Tools:pod_container_state(
           maps:get(agent_container_name, Config),
