@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
       - name: kube-vxlan-controller
-        image: openvnf/kube-vxlan-controller:0.9.5
+        image: openvnf/kube-vxlan-controller:latest
         args:
         - run
         volumeMounts:
