@@ -51,7 +51,7 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
         lists:reverse(string:split(Command, " ", all))
     ),
 
-    try ?K8s:ws_connect(Resource, Query, Config) of
+    case ?K8s:ws_connect(Resource, Query, Config) of
         {ok, Socket} ->
             case ?K8s:ws_recv(Socket) of
                 {ok, Result} ->
@@ -65,10 +65,6 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
             end;
         {error, Reason} ->
             ?Log:error(Reason),
-            ""
-    catch
-        _ClassN:_ExceptionPatternN:Stacktrace ->
-            ?Log:error(Stacktrace),
             ""
     end.
 
