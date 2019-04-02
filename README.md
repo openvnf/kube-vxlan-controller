@@ -9,6 +9,12 @@ specified. This can be done automatically on a pod creation by using the Kube
 VXLAN Controller. A pod could be configured to have any number of VXLAN
 interfaces, i.e. to be a member of any number of VXLAN Segments.
 
+* [Deployment](#deployment)
+* [Usage](#usage)
+* [Controller Workflow](#controller-workflow)
+* [Example](#example)
+* [Troubleshooting](#troubleshooting)
+
 ## Deployment
 
 The controller monitors pods using the [Kubernetes API] and could run as a
@@ -28,9 +34,9 @@ To make a pod VXLAN enabled it should answer the following conditions:
 * have a "vxlan.openvnf.org" label set to "true"
 * have a "vxlan.openvnf.org/networks" annotation describing VXLAN networks
 * run a Kube VXLAN Controller Agent init container with the security context
-"NET_ADMIN" capability
+  "NET_ADMIN" capability
 * run a Kube VXLAN Controller Agent sidecar container with the security context
-"NET_ADMIN" capability.
+  "NET_ADMIN" capability.
 
 These conditions could be described in a single manifest:
 
@@ -219,6 +225,108 @@ PING 192.168.12.2 (192.168.12.2): 56 data bytes
 $ kubectl exec -it $POD_B -c b ping 192.168.11.2
 PING 192.168.11.2 (192.168.11.2): 56 data bytes
 64 bytes from 192.168.11.2: seq=0 ttl=63 time=0.107 ms
+```
+
+## Troubleshooting
+
+If a pod is not get provisioned with a VXLAN interface, or pods are not pingable
+within a VXLAN network, there are several things to check:
+
+### Label and Annotation
+
+The label and annotation are named according to the current configuration. To
+check the configuration:
+
+```
+$ kubectl -n kube-system get cm kube-vxlan-controller-config -o jsonpath="{.data.config}"
+[{'kube-vxlan-controller', [
+    {db_file, "/usr/share/kube-vxlan-controller/db"},
+    {selector, "vxlan.openvnf.org"},
+    {annotation, "vxlan.openvnf.org/networks"}
+]}].
+```
+
+In this case the label should be "vxlan.openvnf.org: true", the annotation —
+"vxlan.openvnf.org/networks: <Networks Definition>".
+
+### Containers
+
+Both init agent and runtime agent containers are present in a pod and named this
+way:
+
+* init agent: "vxlan-controller-agent-init"
+* runtime agent: "vxlan-controller-agent"
+
+Both containers should have "NET_ADMIN" capability.
+
+
+### Logs
+
+Check the controller logs to see if a pod was processed:
+
+```
+$ POD=$(kubectl -n kube-system get po -l run=kube-vxlan-controller -o jsonpath="{.items[*].metadata.name}")
+$ kubectl -n kube-system logs $POD
+```
+
+The logs should contain the pod name and records of attempts of creating VXLAN
+interfaces and provisioning FDB table.
+
+### Inspect
+
+The VXLAN networks managed by the controller can be inspected:
+
+```
+$ POD=$(kubectl -n kube-system get po -l run=kube-vxlan-controller -o jsonpath="{.items[*].metadata.name}")
+$ kubectl -n kube-system exec $POD kube-vxlan-controller inspect nets <Nets>
+```
+
+Example:
+
+```
+$ kubectl -n kube-system exec $POD kube-vxlan-controller inspect nets vxeth1 vxeth2
+[vxeth1]
+ pod: default/a-5cd8c6ccb8-kkvwt 10.234.98.195
+ net: dev:eth0 id:101 ip:192.168.11.2/29 name:vxeth1 route:192.168.12.0/29:192.168.11.1 type:vxlan up:true
+ fdb: 00:00:00:00:00:00 dst 10.234.72.134 self permanent
+
+ pod: default/gw-f87979b47-5p57h 10.234.72.134
+ net: dev:eth0 id:101 ip:192.168.11.1/29 name:vxeth1 type:vxlan up:true
+ fdb: 00:00:00:00:00:00 dst 10.234.98.195 self permanent
+
+[vxeth2]
+ pod: default/b-cf894dbfd-t657f 10.234.101.131
+ net: dev:eth0 id:102 ip:192.168.12.2/29 name:vxeth2 route:192.168.11.0/29:192.168.12.1 type:vxlan up:true
+ fdb: 00:00:00:00:00:00 dst 10.234.72.134 self permanent
+
+ pod: default/gw-f87979b47-5p57h 10.234.72.134
+ net: dev:eth0 id:102 ip:192.168.12.1/29 name:vxeth2 type:vxlan up:true
+ fdb: 00:00:00:00:00:00 dst 10.234.101.131 self permanent
+```
+
+The important part to check here is that all the desired pods are in the
+desired network, and "fdb" field of a particular pod has a corresponding
+record for each pod (by its IP address) that it supposed to be connected to.
+
+### List Pods
+
+To list all the pods the controller is aware of:
+
+```
+$ POD=$(kubectl -n kube-system get po -l run=kube-vxlan-controller -o jsonpath="{.items[*].metadata.name}")
+$ kubectl -n kube-system exec $POD kube-vxlan-controller list pods
+default/a-5cd8c6ccb8-kkvwt vxeth1 192.168.11.2/29
+default/b-cf894dbfd-t657f vxeth2 192.168.12.2/29
+default/gw-f87979b47-5p57h vxeth1 192.168.11.1/29
+default/gw-f87979b47-5p57h vxeth2 192.168.12.1/29
+```
+
+Pod name prefix only can be used to filter:
+
+```
+$ kubectl -n kube-system exec $POD kube-vxlan-controller list pods gw
+default/gw-f87979b47-5p57h vxeth1 192.168.11.1/29
+default/gw-f87979b47-5p57h vxeth2 192.168.12.1/29
 ```
 
 ## License
