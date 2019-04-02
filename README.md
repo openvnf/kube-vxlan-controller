@@ -308,6 +308,9 @@ The important part to check here is that all the desired pods are in the
 desired network, and "fdb" field of a particular pod has a corresponding
 record for each pod (by its IP address) that it supposed to be connected to.
 
+If expected pods are missing in the corresponding "fdb" fields it worth trying
+to restart the pod where the records are missing.
+
 ### List Pods
 
 To list all the pods the controller is aware of:
