@@ -332,6 +332,13 @@ default/gw-f87979b47-5p57h vxeth1 192.168.11.1/29
 default/gw-f87979b47-5p57h vxeth2 192.168.12.1/29
 ```
 
+### Pods Connectivity
+
+The interpod connectivity is fundamental requirement for VXLAN network to work.
+Each IP address listed in the "fdb" field of a given pod
+(see [Inspect](#inspect)) should be pingable from that pod. If that is not the
+case the issue should be resolved first.
+
 ## License
 
 Copyright 2018-2019 Travelping GmbH
