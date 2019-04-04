@@ -246,8 +246,8 @@ $ kubectl -n kube-system get cm kube-vxlan-controller-config -o jsonpath="{.data
 ]}].
 ```
 
-In this case the label should be "vxlan.openvnf.org: true", the annotation —
-"vxlan.openvnf.org/networks: <Networks Definition>".
+In this case the label should be "vxlan.openvnf.org", the annotation —
+"vxlan.openvnf.org/networks".
 
 ### Containers
 
@@ -338,6 +338,25 @@ The interpod connectivity is fundamental requirement for VXLAN network to work.
 Each IP address listed in the "fdb" field of a given pod
 (see [Inspect](#inspect)) should be pingable from that pod. If that is not the
 case the issue should be resolved first.
+
+### Stuck on a pod
+
+If the last log record of the controller does not look similar to this:
+
+```
+Watching pods (selector: vxlan.openvnf.org) from version: 181701
+```
+
+and does not advance, that might be a sign of the controller stuck during
+execution a command on a stuck pod. Most likely the last log record contains 
+the pod name. In this case the pod should be deleted. If the controller log
+records do not still advance, the controller should be restarted. Either with
+
+```
+$ kill -TERM 1
+```
+
+on the controller pod or by deleting the pod.
 
 ## License
 
