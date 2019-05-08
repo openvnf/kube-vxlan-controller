@@ -1,5 +1,5 @@
 ARG ERLANG_VERSION=21.1
-FROM aialferov/erlang:$ERLANG_VERSION AS builder
+FROM quay.io/openvnf/erlang:$ERLANG_VERSION AS builder
 LABEL project=kube-vxlan-controller
 
 COPY . src
