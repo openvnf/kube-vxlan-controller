@@ -3,6 +3,7 @@
     {vsn, "0.10.3"},
     {modules, []},
     {applications, [kernel, stdlib, inets, cpflib, hackney, ewsc, jsx]},
+    {mod, {'kube-vxlan-controller', []}},
     {env, [
         {git_sha, lists:sublist(os:cmd("git rev-parse HEAD 2>/dev/null"), 8)},
         {config_files, [

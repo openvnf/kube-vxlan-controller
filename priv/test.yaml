@@ -1,0 +1,58 @@
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: test0
+  namespace: default
+spec:
+  config: '{
+      "cniVersion": "0.3.1",
+      "type": "bridge",
+      "bridge": "br-test0",
+      "ipam": { }
+    }'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: vxlan-test
+  name: vxlan-test
+  namespace: default
+spec:
+  replicas: 20
+  selector:
+  selector:
+    matchLabels:
+      run: vxlan-test
+  template:
+    metadata:
+      labels:
+        run: vxlan-test
+        vxlan.openvnf.org: "true"
+        vxlan.travelping.com: "true"
+      annotations:
+        vxlan.travelping.com/networks: test0
+        k8s.v1.cni.cncf.io/networks: default/test0@test0
+    spec:
+      initContainers:
+      - image: openvnf/kube-vxlan-controller-agent
+        resources:
+          limits:
+            cpu: "1"
+            memory: "200Mi"
+        name: vxlan-controller-agent-init
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+      containers:
+      - image: aialferov/pause
+        imagePullPolicy: Always
+        name: a
+      - image: openvnf/kube-vxlan-controller-agent
+        name: vxlan-controller-agent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN

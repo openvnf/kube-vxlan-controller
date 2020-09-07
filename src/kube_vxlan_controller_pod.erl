@@ -4,9 +4,10 @@
     get/1, get/2, get/3,
     exec/5
 ]).
-    
+
+-include_lib("kernel/include/logger.hrl").
+
 -define(K8s, kube_vxlan_controller_k8s).
--define(Log, kube_vxlan_controller_log).
 
 -define(ExecQuery, [
     {"stdout", "true"},
@@ -41,7 +42,7 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
     Silent = maps:get(silent, Config, false),
 
     Silent orelse
-        ?Log:info("~s/~s/~s: ~s", [Namespace, PodName, ContainerName, Command]),
+        ?LOG(info, "~s/~s/~s: ~s", [Namespace, PodName, ContainerName, Command]),
 
     Resource = fmt("/api/v1/namespaces/~s/pods/~s/exec", [Namespace, PodName]),
 
@@ -56,15 +57,15 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
             case ?K8s:ws_recv(Socket) of
                 {ok, Result} ->
                     ?K8s:ws_close(Socket),
-                    Silent orelse ?Log:info("~s", [Result]),
+                    Silent orelse ?LOG(info, "~s", [Result]),
                     Result;
                 {error, Reason} ->
                     ?K8s:ws_close(Socket),
-                    ?Log:error(Reason),
+                    ?LOG(error, Reason),
                     ""
             end;
         {error, Reason} ->
-            ?Log:error(Reason),
+            ?LOG(error, Reason),
             ""
     end.
 

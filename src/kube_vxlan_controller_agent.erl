@@ -31,7 +31,7 @@ exec(#{namespace := Namespace, name := PodName}, Command, Config) ->
 %}).
 %
 %embed(Namespace, DeploymentName, Config) ->
-%    ?Log:info("Embedding agent into \"~s\" deployment", [DeploymentName]),
+%    ?LOG(info, "Embedding agent into \"~s\" deployment", [DeploymentName]),
 %
 %    Resource = "/apis/apps/v1beta2/namespaces/" ++ Namespace ++
 %               "/deployments/" ++ binary_to_list(DeploymentName),
@@ -41,7 +41,7 @@ exec(#{namespace := Namespace, name := PodName}, Command, Config) ->
 %    Body = jsx:encode(?AgentSpec),
 %
 %    {ok, Data} = ?K8s:http_request(patch, Resource, [], Headers, Body, Config),
-%    ?Log:info(Data),
+%    ?LOG(info, Data),
 %    ok.
 %
 %get_deployment_name(Namespace, ReplicaSetName) ->

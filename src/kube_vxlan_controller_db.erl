@@ -18,6 +18,7 @@ save_resource_version(Selector, Version, Config) ->
     NewData = maps_put_sub(resource_versions, Selector, Version, Data),
     save_config(NewData, Config).
 
+%% TBD: init with empty ConfigMap
 nets_options(
     Config = #{namespace := Namespace,
                configmap_name := ConfigMapName}
