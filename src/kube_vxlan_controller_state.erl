@@ -27,12 +27,12 @@ resource_version(State) ->
     maps:get(resource_version, State, "0").
 
 set_resource_version(#{resource_version := Value}, State) ->
-    OldValue = list_to_integer(resource_version(State)),
-    ProposedValue = list_to_integer(Value),
+    OldValue = resource_version(State),
+    ProposedValue = Value,
 
     case ProposedValue >= OldValue of
         true ->
-            NewValue = integer_to_list(ProposedValue + 1),
+            NewValue = ProposedValue + 1,
             NewState = set_resource_version_unshown(State),
             set_resource_version(NewValue, NewState);
         false -> State

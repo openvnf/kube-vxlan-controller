@@ -5,6 +5,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 -define(Run, kube_vxlan_controller_run).
+-define(AgentSup, kube_vxlan_controller_agent_sup).
 
 %% API
 -export([start_link/1]).
@@ -30,5 +31,6 @@ start_link(Config) ->
 init([Config]) ->
     {ok, {{one_for_one, 5, 10},
 	  [
+	   ?CHILD(?AgentSup, supervisor, []),
 	   ?CHILD(?Run, worker, [Config])
 	  ]}}.

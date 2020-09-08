@@ -19,54 +19,55 @@ get(Filter = {label, _Selector}, Config) -> get(all, Filter, Config).
 
 get(Namespace, Filter, Config) ->
     Resource = case {Namespace, Filter} of
-        {all, Filter} ->
-            "/api/v1/pods";
-        {Namespace, {label, _Selector}} -> fmt(
-            "/api/v1/namespaces/~s/pods", [Namespace]
-        );
-        {Namespace, {pod, Name}} -> fmt(
-            "/api/v1/namespaces/~s/pods/~s", [Namespace, Name]
-        )
+	{all, Filter} ->
+	    "/api/v1/pods";
+	{Namespace, {label, _Selector}} -> fmt(
+	    "/api/v1/namespaces/~s/pods", [Namespace]
+	);
+	{Namespace, {pod, Name}} -> fmt(
+	    "/api/v1/namespaces/~s/pods/~s", [Namespace, Name]
+	)
     end,
-    Query = case Filter of
-        {pod, _Name} -> [];
-        {label, false} -> [];
-        {label, Selector} -> [{"labelSelector", Selector}]
+    Query =
+	case Filter of
+	    {pod, _Name}      -> [];
+	    {label, false}    -> [];
+	    {label, Selector} -> [{"labelSelector", Selector}]
     end,
     case ?K8s:http_request(Resource, Query, Config) of
-        {ok, [Result]} -> {ok, maps:get(items, Result, Result)};
-        {error, Reason} -> {error, Reason}
+	{ok, Result} -> {ok, maps:get(items, Result, Result)};
+	{error, Reason} -> {error, Reason}
     end.
 
 exec(Namespace, PodName, ContainerName, Command, Config) ->
     Silent = maps:get(silent, Config, false),
 
     Silent orelse
-        ?LOG(info, "~s/~s/~s: ~s", [Namespace, PodName, ContainerName, Command]),
+	?LOG(info, "~s/~s/~s: ~s", [Namespace, PodName, ContainerName, Command]),
 
     Resource = fmt("/api/v1/namespaces/~s/pods/~s/exec", [Namespace, PodName]),
 
     Query = lists:foldl(
-        fun(Arg, ExecQuery) -> [{"command", Arg}|ExecQuery] end,
-        [{"container", ContainerName}|?ExecQuery],
-        lists:reverse(string:split(Command, " ", all))
+	fun(Arg, ExecQuery) -> [{"command", Arg}|ExecQuery] end,
+	[{"container", ContainerName}|?ExecQuery],
+	lists:reverse(string:split(Command, " ", all))
     ),
 
     case ?K8s:ws_connect(Resource, Query, Config) of
-        {ok, Socket} ->
-            case ?K8s:ws_recv(Socket) of
-                {ok, Result} ->
-                    ?K8s:ws_close(Socket),
-                    Silent orelse ?LOG(info, "~s", [Result]),
-                    Result;
-                {error, Reason} ->
-                    ?K8s:ws_close(Socket),
-                    ?LOG(error, Reason),
-                    ""
-            end;
-        {error, Reason} ->
-            ?LOG(error, Reason),
-            ""
+	{ok, ConnPid, StreamRef} ->
+	    case ?K8s:ws_recv(ConnPid, StreamRef) of
+		{ok, Result} ->
+		    ?K8s:ws_close(ConnPid),
+		    Silent orelse ?LOG(info, "~p", [Result]),
+		    Result;
+		{error, Reason} ->
+		    ?K8s:ws_close(ConnPid),
+		    ?LOG(error, #{reason => Reason}),
+		    <<>>
+	    end;
+	{error, Reason} ->
+	    ?LOG(error, #{reason => Reason}),
+	    <<>>
     end.
 
 fmt(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).

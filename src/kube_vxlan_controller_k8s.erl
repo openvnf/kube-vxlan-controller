@@ -1,137 +1,120 @@
 -module(kube_vxlan_controller_k8s).
 
--export([
-    http_request/3,
-    http_request/6,
+-export([http_request/3, http_request/6,
+	 ws_connect/3, ws_close/1, ws_recv/2]).
 
-    http_stream_request/3,
-    http_stream_read/1,
-
-    ws_connect/3,
-    ws_close/1,
-    ws_recv/1
-]).
+-include_lib("kernel/include/logger.hrl").
 
 -define(JsonDecodeOptions, [return_maps, {labels, atom}]).
 
 -define(HttpStreamRecvTimeout, 60 * 1000). % milliseconds
 
 http_request(Resource, Query, Config) ->
-    http_request(get, Resource, Query, [], <<>>, Config).
+    http_request(get, Resource, Query, [], [], Config).
 
-http_request(Method, Resource, Query, RequestHeaders, RequestBody, _Config = #{
-    server := Server,
-    ca_cert_file := CaCertFile,
-    token := Token
-}) ->
-    Url = url(Server, Resource, Query),
-    Options = http_options(CaCertFile),
+http_request(Method, Resource, Query, RequestHeaders, RequestBody,
+	     #{server := Server, ca_cert_file := CaCertFile, token := Token}) ->
 
-    case hackney:request(
-        Method, Url, RequestHeaders ++ headers(Token),
-        RequestBody, Options
-    ) of
-        {ok, 200, _Headers, Ref} ->
-            {ok, Body} = hackney:body(Ref),
-            {ok, jsx:decode(<<"[", Body/binary, "]">>, ?JsonDecodeOptions)};
-        {ok, Code, Headers, Ref} ->
-            {ok, Body} = hackney:body(Ref),
-            {error, {Code, Headers, Body}};
-        {error, Reason} -> {error, Reason}
+    #{host := Host,
+      port := Port} = uri_string:parse(Server),
+
+    Opts = #{connect_timeout => ?HttpStreamRecvTimeout,
+	     protocols => [http2],
+	     transport => tls,
+	     tls_opts => [{cacertfile, CaCertFile}]
+	    },
+    {ok, ConnPid} = gun:open(Host, Port, Opts),
+    {ok, _Protocol} = gun:await_up(ConnPid),
+
+    QueryStr = uri_string:compose_query(Query),
+    Path = uri_string:recompose(#{path => Resource, query => QueryStr}),
+
+    StreamRef = gun:request(ConnPid, method(Method), Path,
+			    headers(Token, RequestHeaders), RequestBody),
+    Response =
+	case gun:await(ConnPid, StreamRef) of
+	    {response, fin, Status, _Headers} ->
+		{error, Status};
+	    {response, nofin, 200, _Headers} ->
+		{ok, Body} = gun:await_body(ConnPid, StreamRef),
+		Doc = jsx:decode(Body, ?JsonDecodeOptions),
+		{ok, Doc};
+	    {response, nofin, Status, Headers} ->
+		{ok, Body} = gun:await_body(ConnPid, StreamRef),
+		{error, {Status, Headers, Body}}
+	end,
+    gun:close(ConnPid),
+    Response.
+
+ws_connect(Resource, Query,
+	   #{server := Server, ca_cert_file := CaCertFile, token := Token}) ->
+    #{host := Host,
+      port := Port} = uri_string:parse(Server),
+
+    Opts = #{connect_timeout => ?HttpStreamRecvTimeout,
+	     protocols => [http],
+	     transport => tls,
+	     tls_opts => [{cacertfile, CaCertFile}]
+	    },
+    {ok, ConnPid} = gun:open(Host, Port, Opts),
+    {ok, _Protocol} = gun:await_up(ConnPid),
+
+    QueryStr = uri_string:compose_query(Query),
+    Path = uri_string:recompose(#{path => Resource, query => QueryStr}),
+
+    WsOpts =
+	#{protocols =>
+	      [{<<"v4.channel.k8s.io">>, gun_ws_h},
+	       {<<"v3.channel.k8s.io">>, gun_ws_h},
+	       {<<"v2.channel.k8s.io">>, gun_ws_h},
+	       {<<"channel.k8s.io">>,    gun_ws_h}]},
+    StreamRef = gun:ws_upgrade(ConnPid, Path, headers(Token, []), WsOpts),
+    case gun:await(ConnPid, StreamRef, 5000) of
+	{upgrade, [<<"websocket">>], _Headers} ->
+	    {ok, ConnPid, StreamRef};
+	{response, nofin, Status, _Headers} ->
+	    {ok, Body} = gun:await_body(ConnPid, StreamRef),
+	    ?LOG(debug, "WS upgrade failed with ~w: ~p", [Status, Body]),
+	    gun:close(ConnPid),
+	    {error, {Status, Body}};
+	{response, fin, Status, _Headers} ->
+	    ?LOG(debug, "WS upgrade failed with ~w", [Status]),
+	    gun:close(ConnPid),
+	    {error, {Status, <<>>}};
+	_Other ->
+	    ?LOG(debug, "WS upgrade failed with: ~p", [_Other]),
+	    gun:close(ConnPid),
+	    {error, failed}
     end.
 
-http_stream_request(Resource, Query, _Config = #{
-    server := Server,
-    ca_cert_file := CaCertFile,
-    token := Token
-}) ->
-    Url = url(Server, Resource, Query),
-    Options = http_options(CaCertFile),
+ws_recv(ConnPid, StreamRef) ->
+    ws_recv(ConnPid, StreamRef, []).
 
-    case hackney:request(get, Url, headers(Token), <<>>, Options) of
-        {ok, 200, _Headers, Ref} -> {ok, Ref};
-        {ok, Code, Headers, Ref} ->
-            {ok, Body} = hackney:body(Ref),
-            {error, {Code, Headers, Body}};
-        {error, Reason} -> {error, Reason}
+ws_recv(ConnPid, StreamRef, Acc) ->
+    case gun:await(ConnPid, StreamRef, 5000) of
+	{ws, close} ->
+	    {ok, Acc};
+	{ws, {binary, Bin}} ->
+	    ws_recv(ConnPid, StreamRef, ws_append(Bin, Acc));
+	{ws, {close, _, Bin}} when is_binary(Bin) ->
+	    {ok, ws_append(Bin, Acc)};
+	{ws, Frame} ->
+	    ?LOG(warning, "unknown frame format: ~p", [Frame]),
+	    {error, format};
+	{error, _} = Error ->
+	    Error
     end.
 
-http_stream_read(Stream) -> http_stream_read(Stream, false).
+ws_close(ConnPid) ->
+    gun:close(ConnPid).
 
-http_stream_read(Stream, DecodeFun) ->
-    case hackney:stream_body(Stream) of
-        done -> {ok, done};
-        {ok, Data} -> http_stream_to_json(Stream, Data, DecodeFun);
-        {error, Reason} -> {error, Reason}
-    end.
+ws_append(<<>>, Acc) ->
+    Acc;
+ws_append(<<Id:8, Msg/binary>>, Acc) ->
+    Acc ++ [{Id, Msg}].
 
-http_stream_to_json(_Stream, <<>>, false) -> {ok, []};
-http_stream_to_json(Stream, Data, false) ->
-    {incomplete, DecodeFun} = jsx:decode(<<"[">>, [stream|?JsonDecodeOptions]),
-    http_stream_to_json(Stream, Data, DecodeFun);
+headers(Token, Headers) ->
+    [{<<"authorization">>, iolist_to_binary(["Bearer ", Token])}|Headers].
 
-http_stream_to_json(Stream, <<>>, DecodeFun) ->
-    http_stream_read(Stream, DecodeFun);
-
-http_stream_to_json(Stream, Data, DecodeFun) ->
-    IsComplete = binary:last(Data) == $\n,
-    DecodableData = binary:replace(Data, <<"\n">>, <<",">>, [global]),
-    {incomplete, NewDecodeFun} = DecodeFun(DecodableData),
-
-    case IsComplete of
-        true ->
-            {incomplete, F} = NewDecodeFun(<<"]">>),
-            {ok, F(end_stream)};
-        false ->
-            http_stream_read(Stream, NewDecodeFun)
-    end.
-
-ws_connect(Resource, Query, _Config = #{
-    server := Server,
-    ca_cert_file := CaCertFile,
-    token := Token
-}) ->
-    Url = url(Server, Resource, Query),
-    ewsc:connect(Url, headers(Token), ws_options(CaCertFile)).
-
-ws_close(Socket) -> ewsc:close(Socket).
-
-ws_recv(Socket) -> ws_recv(Socket, <<"">>).
-
-ws_recv(Socket, Acc) ->
-    case ewsc:recv(Socket, 5000) of
-        {ok, [close|Messages]} ->
-            {ok, binary_to_list(ws_append_messages(Acc, Messages))};
-        {ok, Messages} ->
-            ws_recv(Socket, ws_append_messages(Acc, Messages));
-        {error, Reason} ->
-            {error, Reason}
-    end.
-
-ws_append_messages(Messages, []) -> Messages;
-ws_append_messages(Messages, NewMessages) ->
-    NewMessagesStripped = [M || <<_, M/binary>> <- NewMessages],
-    <<Messages/binary, (iolist_to_binary(NewMessagesStripped))/binary>>.
-
-url(Server, Resource, Query) ->
-    Server ++ Resource ++ url_query(Query).
-
-url_query([]) -> "";
-url_query(Query) ->
-    [$?|lists:flatten(lists:join($&, lists:map(fun url_query_param/1, Query)))].
-
-url_query_param({Key, Value}) ->
-    [http_uri:encode(Key)] ++ [$=|http_uri:encode(Value)].
-
-headers(Token) -> [
-    {"Authorization", "Bearer " ++ Token}
-].
-
-http_options(CaCertFile) -> [
-    {ssl_options, [{cacertfile, CaCertFile}]},
-    {recv_timeout, ?HttpStreamRecvTimeout}
-].
-
-ws_options(CaCertFile) -> [
-    {cacertfile, CaCertFile}
-].
+method(Method) when is_atom(Method) ->
+    list_to_binary(string:uppercase(atom_to_list(Method))).

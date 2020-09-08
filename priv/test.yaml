@@ -20,7 +20,7 @@ metadata:
   name: vxlan-test
   namespace: default
 spec:
-  replicas: 20
+  replicas: 5
   selector:
   selector:
     matchLabels:

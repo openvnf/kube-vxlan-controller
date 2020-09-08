@@ -11,7 +11,7 @@
 -define(Tools, kube_vxlan_controller_tools).
 
 load_resource_version(Selector, Config) ->
-    maps_get_sub(resource_versions, Selector, load_config(Config), "0").
+    maps_get_sub(resource_versions, Selector, load_config(Config), 0).
 
 save_resource_version(Selector, Version, Config) ->
     Data = load_config(Config),
@@ -19,40 +19,38 @@ save_resource_version(Selector, Version, Config) ->
     save_config(NewData, Config).
 
 %% TBD: init with empty ConfigMap
-nets_options(
-    Config = #{namespace := Namespace,
-               configmap_name := ConfigMapName}
-) ->
+nets_options(#{namespace := Namespace,
+	       configmap_name := ConfigMapName} = Config) ->
     Resource = "/api/v1/namespaces/" ++ Namespace ++
-               "/configmaps/" ++ ConfigMapName,
-    {ok, [#{data := Data}]} = ?K8s:http_request(Resource, [], Config),
+	       "/configmaps/" ++ ConfigMapName,
+    {ok, #{data := Data}} = ?K8s:http_request(Resource, [], Config),
 
     maps:fold(fun(NetName, NetOptions, Map) ->
-        maps:put(atom_to_list(NetName), net_options(NetOptions), Map)
+	maps:put(atom_to_list(NetName), net_options(NetOptions), Map)
     end, #{}, Data).
 
 net_options(Options) ->
     maps:from_list(net_id_bc([
-        ?Tools:pod_read_net_option(Option) ||
-        Option <- string:lexemes(binary_to_list(Options), " ")
+	?Tools:pod_read_net_option(Option) ||
+	Option <- string:lexemes(binary_to_list(Options), " ")
     ])).
 
 %%% TODO: provided for BC, remove when not needed
 net_id_bc(Options) ->
     lists:map(fun({Name, Value}) ->
-        NameString = atom_to_list(Name),
-        try list_to_integer(NameString) of
-            Id -> {id, integer_to_list(Id)}
-        catch
-            _:_ -> {Name, Value}
-        end
+	NameString = atom_to_list(Name),
+	try list_to_integer(NameString) of
+	    Id -> {id, integer_to_list(Id)}
+	catch
+	    _:_ -> {Name, Value}
+	end
     end, Options).
 %%%
 
 load_config(Config) ->
     case file:consult(maps:get(db_file, Config)) of
-        {ok, [Data]} when is_map(Data) -> Data;
-        {error, _Reason} -> #{}
+	{ok, [Data]} when is_map(Data) -> Data;
+	{error, _Reason} -> #{}
     end.
 
 save_config(Data, Config) ->
