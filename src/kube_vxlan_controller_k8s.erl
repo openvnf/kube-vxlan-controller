@@ -3,34 +3,106 @@
 -export([http_request/3, http_request/6,
 	 ws_connect/3, ws_close/1, ws_recv/2]).
 
+%% API
+-export([start_link/1, open/0]).
+
+%% gen_statem callbacks
+-export([callback_mode/0, init/1, handle_event/4, terminate/3, code_change/4]).
+
+-define(SERVER, ?MODULE).
+
 -include_lib("kernel/include/logger.hrl").
 
+%%%===================================================================
+%%% API
+%%%===================================================================
+
+-define(DEBUG_OPTS, [{install, {fun logger_sys_debug:logger_gen_statem_trace/3, ?MODULE}}]).
 -define(JsonDecodeOptions, [return_maps, {labels, atom}]).
-
 -define(HttpStreamRecvTimeout, 60 * 1000). % milliseconds
+-define(TIMEOUT, 5000).
 
-http_request(Resource, Query, Config) ->
-    http_request(get, Resource, Query, [], [], Config).
+start_link(Config) ->
+    %%Opts = [{debug, ?DEBUG_OPTS}],
+    Opts = [],
+    gen_statem:start_link({local, ?SERVER}, ?MODULE, [Config], Opts).
 
-http_request(Method, Resource, Query, RequestHeaders, RequestBody,
-	     #{server := Server, ca_cert_file := CaCertFile, token := Token}) ->
+open() ->
+    gen_statem:call(?SERVER, get).
+
+%%%===================================================================
+%%% gen_statem callbacks
+%%%===================================================================
+
+callback_mode() -> handle_event_function.
+
+init([#{server := Server,
+	ca_cert_file := CaCertFile} = Config]) ->
+    process_flag(trap_exit, true),
 
     #{host := Host,
       port := Port} = uri_string:parse(Server),
 
-    Opts = #{connect_timeout => ?HttpStreamRecvTimeout,
+    Opts = #{connect_timeout => ?TIMEOUT,
 	     protocols => [http2],
 	     transport => tls,
 	     tls_opts => [{cacertfile, CaCertFile}]
 	    },
     {ok, ConnPid} = gun:open(Host, Port, Opts),
-    {ok, _Protocol} = gun:await_up(ConnPid),
+    ?LOG(info, "~p: connecting to ~s", [ConnPid, Server]),
+    MRef = monitor(process, ConnPid),
+
+    Data = #{conn => ConnPid, mref => MRef},
+    {ok, init, Data}.
+
+handle_event(info, {'DOWN', MRef, process, ConnPid, Reason}, _,
+	     #{mref := MRef, conn := ConnPid}) ->
+    ?LOG(info, "~p: terminated with ~p", [ConnPid, Reason]),
+    gun:close(ConnPid),
+    {stop, normal};
+
+handle_event(info, {gun_up, ConnPid, _Protocol}, init, #{conn := ConnPid} = Data) ->
+    ?LOG(info, "Command Channel UP Protocol: ~p", [_Protocol]),
+    {next_state, up, Data};
+handle_event(info, {gun_error, ConnPid, Reason}, _, #{conn := ConnPid} = Data) ->
+    ?LOG(error, "Connection Error: ~p", [Reason]),
+    gun:close(ConnPid),
+    {stop, normal};
+
+handle_event({call, From}, get, up, #{conn := ConnPid}) ->
+    {keep_state_and_data, [{reply, From, {ok, ConnPid}}]};
+handle_event({call, _From}, get, _, _Data) ->
+    {keep_state_and_data, [postpone]};
+
+handle_event(_Ev, _Msg, _State, _Data) ->
+    ?LOG(debug, "Ev: ~p, Msg: ~p, State: ~p", [_Ev, _Msg, _State]),
+    keep_state_and_data.
+
+terminate(_Reason, _State, _Data) ->
+    ok.
+
+code_change(_OldVsn, State, Data, _Extra) ->
+    {ok, State, Data}.
+
+%%%=========================================================================
+%%%  internal functions
+%%%=========================================================================
+
+http_request(Resource, Query, Config) ->
+    http_request(get, Resource, Query, [], [], Config).
+
+http_request(Method, Resource, Query, RequestHeaders, RequestBody,
+	     #{token := Token}) ->
+
+    {ok, ConnPid} = open(),
 
     QueryStr = uri_string:compose_query(Query),
     Path = uri_string:recompose(#{path => Resource, query => QueryStr}),
+    RequestOpts = #{reply_to => self()},
 
     StreamRef = gun:request(ConnPid, method(Method), Path,
-			    headers(Token, RequestHeaders), RequestBody),
+			    headers(Token, RequestHeaders),
+			    RequestBody, RequestOpts),
     Response =
 	case gun:await(ConnPid, StreamRef) of
 	    {response, fin, Status, _Headers} ->
@@ -43,7 +115,6 @@ http_request(Method, Resource, Query, RequestHeaders, RequestBody,
 		{ok, Body} = gun:await_body(ConnPid, StreamRef),
 		{error, {Status, Headers, Body}}
 	end,
-    gun:close(ConnPid),
     Response.
 
 ws_connect(Resource, Query,
