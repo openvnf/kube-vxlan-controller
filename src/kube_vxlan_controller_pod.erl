@@ -1,18 +1,163 @@
 -module(kube_vxlan_controller_pod).
 
--export([
-    get/1, get/2, get/3,
-    exec/5
-]).
+-behavior(gen_statem).
+
+%% API
+-export([start_link/3, process_event/3]).
+-export([get/1, get/2, get/3, exec/5]).
+
+%% gen_statem callbacks
+-export([callback_mode/0, init/1, handle_event/4, terminate/3, code_change/4]).
 
 -include_lib("kernel/include/logger.hrl").
 
+-define(Db, kube_vxlan_controller_db).
 -define(K8s, kube_vxlan_controller_k8s).
+-define(Net, kube_vxlan_controller_net).
+-define(Pod, kube_vxlan_controller_pod).
+-define(Agent, kube_vxlan_controller_agent).
+-define(Tools, kube_vxlan_controller_tools).
+-define(Format, kube_vxlan_controller_format).
+-define(PodReg, kube_vxlan_controller_pod_reg).
+
+-define(STDOUT, 1).
+-define(STDERR, 2).
 
 -define(ExecQuery, [
     {"stdout", "true"},
     {"stderr", "true"}
 ]).
+
+-record(data, {uid, pod, config}).
+
+%%%===================================================================
+%%% API
+%%%===================================================================
+
+-define(DEBUG_OPTS, [{install, {fun logger_sys_debug:logger_gen_statem_trace/3, ?MODULE}}]).
+-define(JsonDecodeOptions, [return_maps, {labels, atom}]).
+
+start_link(Id, Event, Config) ->
+    Opts = [{debug, ?DEBUG_OPTS}],
+    %%Opts = [],
+    gen_statem:start_link(?MODULE, [Id, Event, Config], Opts).
+
+process_event(Type, #{pod_uid := UId} = Pod, Config) ->
+    ?PodReg:process_event(UId, {Type, Pod}, Config).
+
+%%%===================================================================
+%%% gen_statem callbacks
+%%%===================================================================
+
+callback_mode() -> [handle_event_function, state_enter].
+
+init([Id, Event, Config]) ->
+    ?LOG(info, "Pod ~p started", [Id]),
+    Data = #data{uid = Id, pod = #{}, config = Config},
+    self() ! Event,
+    {ok, pending, Data}.
+
+handle_event(enter, _, pending, _Data) ->
+    keep_state_and_data;
+
+handle_event(enter, _, setup, #data{uid = Id, config = Config,
+				    pod = #{pod_name := Name} = PodResource}) ->
+    ?LOG(debug, "====== Pod ~s (~p): Setup", [Name, Id]),
+
+    Pod = pod(PodResource, ?Db:nets_options(Config)),
+    ?LOG(info, "Pod setup:~n~s", [pods_format([Pod])]),
+    ?Net:pod_setup(Pod, Config),
+    ?Agent:terminate(Pod, Config),
+
+    keep_state_and_data;
+
+handle_event(enter, _, join, #data{uid = Id, config = Config,
+				   pod = #{pod_name := Name} = PodResource}) ->
+    ?LOG(debug, "====== Pod ~s (~p): Join", [Name, Id]),
+
+    {Pod, NetPods} = pods(PodResource, Config),
+    ?LOG(info, "Pod joining:~n~s", [pods_format([Pod])]),
+    ?LOG(info, "Pods to join:~n~s", [pods_format(NetPods)]),
+    ?Net:pod_join(Pod, NetPods, Config),
+
+    keep_state_and_data;
+
+handle_event(enter, _, leave, #data{uid = Id, config = Config,
+				   pod = #{pod_name := Name} = PodResource}) ->
+    ?LOG(debug, "====== Pod ~s (~p): Leave", [Name, Id]),
+
+    {Pod, NetPods} = pods(PodResource, Config),
+    ?LOG(info, "Pod leaving:~n~s", [pods_format([Pod])]),
+    ?LOG(info, "Pods to leave:~n~s", [pods_format(NetPods)]),
+    ?Net:pod_leave(Pod, NetPods, Config),
+
+    keep_state_and_data;
+
+handle_event(enter, _, State, #data{uid = Id, pod = #{pod_name := Name}}) ->
+    ?LOG(debug, "====== Pod ~s (~p): Enter ~p", [Name, Id, State]),
+    keep_state_and_data;
+
+handle_event(info, {deleted, _Pod}, State, #data{uid = Id}) ->
+    ?LOG(debug, "====== Pod ~p: Terminated in state ~p", [Id, State]),
+    {stop, normal};
+
+handle_event(info, {_, Pod}, _State, #data{uid = Id} = Data) ->
+    NextState = next_state(Pod),
+    ?LOG(debug, "====== Pod ~p: ~p", [Id, NextState]),
+    {next_state, NextState, Data#data{pod = Pod}};
+
+handle_event(_Ev, _Msg, _State, _Data) ->
+    ?LOG(debug, "Ev: ~p, Msg: ~p, State: ~p", [_Ev, _Msg, _State]),
+    keep_state_and_data.
+
+terminate(_Reason, _State, _Data) ->
+    ok.
+
+code_change(_OldVsn, State, Data, _Extra) ->
+    {ok, State, Data}.
+
+%%%=========================================================================
+%%%  internal functions
+%%%=========================================================================
+
+next_state(#{init_agent := running}) ->
+    init;
+next_state(#{agent := running}) ->
+    join;
+next_state(#{agent := terminated}) ->
+    leave;
+next_state(_) ->
+    pending.
+
+pods(PodResource,  Config) ->
+    GlobalNetsOptions = ?Db:nets_options(Config),
+    Pod = pod(PodResource, GlobalNetsOptions),
+
+    {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),
+    Filters = [
+	{with_nets, ?Net:pod_net_names(Pod)},
+	{without_pods, [maps:get(name, Pod)]}
+    ],
+    {Pod, ?Tools:pods(PodResources, GlobalNetsOptions, Filters, Config)}.
+
+pod(#{namespace := Namespace,
+      pod_name := PodName,
+      pod_ip := PodIp,
+      nets_data := NetsData},
+    GlobalNetsOptions) ->
+    #{namespace => Namespace,
+      name => PodName,
+      ip => PodIp,
+      nets => ?Tools:pod_nets(NetsData, GlobalNetsOptions)
+     }.
+
+pods_format(Pods) ->
+    Indent = 2,
+    lists:flatten([
+	?Format:pod(Pod) ++ "\n" ++
+	?Format:pod_nets(maps:get(nets, Pod), Indent) ++ "\n" ||
+	Pod <- Pods
+    ]).
 
 get(Config) -> get(all, {label, false}, Config).
 get(Filter = {label, _Selector}, Config) -> get(all, Filter, Config).
@@ -59,7 +204,7 @@ exec(Namespace, PodName, ContainerName, Command, Config) ->
 		{ok, Result} ->
 		    ?K8s:ws_close(ConnPid),
 		    Silent orelse ?LOG(info, "~p", [Result]),
-		    Result;
+		    maps:get(?STDOUT, Result, <<>>);
 		{error, Reason} ->
 		    ?K8s:ws_close(ConnPid),
 		    ?LOG(error, #{reason => Reason}),

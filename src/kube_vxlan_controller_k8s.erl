@@ -159,16 +159,16 @@ ws_connect(Resource, Query,
     end.
 
 ws_recv(ConnPid, StreamRef) ->
-    ws_recv(ConnPid, StreamRef, []).
+    ws_recv(ConnPid, StreamRef, #{}).
 
-ws_recv(ConnPid, StreamRef, Acc) ->
+ws_recv(ConnPid, StreamRef, Output) ->
     case gun:await(ConnPid, StreamRef, 5000) of
 	{ws, close} ->
-	    {ok, Acc};
+	    {ok, Output};
 	{ws, {binary, Bin}} ->
-	    ws_recv(ConnPid, StreamRef, ws_append(Bin, Acc));
+	    ws_recv(ConnPid, StreamRef, ws_append(Bin, Output));
 	{ws, {close, _, Bin}} when is_binary(Bin) ->
-	    {ok, ws_append(Bin, Acc)};
+	    {ok, ws_append(Bin, Output)};
 	{ws, Frame} ->
 	    ?LOG(warning, "unknown frame format: ~p", [Frame]),
 	    {error, format};
@@ -179,10 +179,10 @@ ws_recv(ConnPid, StreamRef, Acc) ->
 ws_close(ConnPid) ->
     gun:close(ConnPid).
 
-ws_append(<<>>, Acc) ->
-    Acc;
-ws_append(<<Id:8, Msg/binary>>, Acc) ->
-    Acc ++ [{Id, Msg}].
+ws_append(<<>>, Output) ->
+    Output;
+ws_append(<<Id:8, Msg/binary>>, Output) ->
+    maps:update_with(Id, fun(X) -> <<X/binary, Msg/binary>> end, Msg, Output).
 
 headers(Token, Headers) ->
     [{<<"authorization">>, iolist_to_binary(["Bearer ", Token])}|Headers].

@@ -8,7 +8,6 @@
 	{git_sha, lists:sublist(os:cmd("git rev-parse HEAD 2>/dev/null"), 8)},
 	{config_files, [
 	    "priv/kube-vxlan-controller.config",
-	    "$(HOME)/.config/kube-vxlan-controller/config",
 	    "/etc/kube-vxlan-controller/config"
 	]},
 	{db_file, "db/kube-vxlan-controller.db"},

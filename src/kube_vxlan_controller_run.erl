@@ -158,7 +158,7 @@ handle_api_data(#{pending := In} = Data0) ->
 process_api_data(Bin, #{selector := Selector} = Data0) ->
     case jsx:decode(Bin, ?JsonDecodeOptions) of
 	#{type := Type, object := Object} ->
-	    {EventType, Resource} = read_event(Type, Object, Data0),
+	    {Kind, Resource} = read_event(Object, Data0),
 	    %%?LOG(debug, #{event => EventType, resource => Resource}),
 
 	    Data = ?State:set_resource_version(Resource, Data0),
@@ -166,51 +166,57 @@ process_api_data(Bin, #{selector := Selector} = Data0) ->
 
 	    ?Db:save_resource_version(Selector, ResourceVersion, Data),
 
-	    process_event(EventType, Resource, Data);
+	    %% process_event(Kind, atom(Type), Resource, Data),
+	    process_event_(Kind, atom(Type), Resource, Data),
+	    Data;
 	Ev ->
 	    ?LOG(info, "unexpected message from k8s: ~p", [Ev]),
 	    Data0
     end.
 
-process_event(pod_added, Pod, Data) ->
-    ?State:set(pod_added, Pod, Data);
+process_event_(pod, Type, #{pod_uid := UId} = Pod, #{config := Config}) ->
+    ?LOG(info, "POD UID: ~p -> ~p", [UId, Type]),
+    ?Pod:process_event(Type, Pod, Config),
+    ok;
+process_event_(_Kind, _Type, _Resource, _Data) ->
+    ok.
 
-process_event(pod_deleted, Pod, Data) ->
-    ?State:unset(pod_added, Pod,
-    ?State:unset(agent_terminated, Pod, Data));
+%% process_event(pod, added, Pod, Data) ->
+%%     ?State:set(pod_added, Pod, Data);
 
-process_event(pod_modified, Pod = #{init_agent := running}, #{config := Config} = Data) ->
-    UseInitAgentConfig =
-	Config#{agent_container_name => maps:get(agent_init_container_name, Data)},
-    pod_setup(Pod, UseInitAgentConfig, Data);
+%% process_event(pod, deleted, Pod, Data) ->
+%%     ?State:unset(pod_added, Pod,
+%%     ?State:unset(agent_terminated, Pod, Data));
 
-process_event(pod_modified, Pod = #{agent := running}, Data0) ->
-    case ?State:is(pod_added, Pod, Data0) of
-	true ->
-	    Data = ?State:unset(pod_added, Pod, Data0),
-	    pod_join(Pod, Data);
-	false ->
-	    Data0
-    end;
+%% process_event(pod, modified, Pod = #{init_agent := running}, #{config := Config} = Data) ->
+%%     UseInitAgentConfig =
+%% 	Config#{agent_container_name => maps:get(agent_init_container_name, Data)},
+%%     pod_setup(Pod, UseInitAgentConfig, Data);
 
-process_event(pod_modified, Pod = #{agent := terminated}, Data0) ->
-    case ?State:is(agent_terminated, Pod, Data0) of
-	true -> Data0;
-	false ->
-	    Data = ?State:set(agent_terminated, Pod, Data0),
-	    pod_leave(Pod, Data)
-    end;
+%% process_event(pod, modified, Pod = #{agent := running}, Data0) ->
+%%     case ?State:is(pod_added, Pod, Data0) of
+%% 	true ->
+%% 	    Data = ?State:unset(pod_added, Pod, Data0),
+%% 	    pod_join(Pod, Data);
+%% 	false ->
+%% 	    Data0
+%%     end;
 
-process_event(_Event, _Resource, Data) ->
-    Data.
+%% process_event(pod, modified, Pod = #{agent := terminated}, Data0) ->
+%%     case ?State:is(agent_terminated, Pod, Data0) of
+%% 	true -> Data0;
+%% 	false ->
+%% 	    Data = ?State:set(agent_terminated, Pod, Data0),
+%% 	    pod_leave(Pod, Data)
+%%     end;
 
-event_type(Kind, Type) ->
-    EventType = <<(string:lowercase(Kind))/binary, "_",
-		  (string:lowercase(Type))/binary>>,
-    binary_to_atom(EventType, latin1).
+%% process_event(_Kind, _Type, _Resource, Data) ->
+%%     Data.
 
-read_event(Type,
-	   #{kind := Kind,
+atom(Bin) when is_binary(Bin) ->
+    binary_to_atom(string:lowercase(Bin), latin1).
+
+read_event(#{kind := Kind,
 	     metadata :=
 		 #{namespace := Namespace,
 		   uid := PodUid,
@@ -240,10 +246,9 @@ read_event(Type,
 			  )
 	 },
     %%?LOG(info, "ICS: ~p", [maps:get(initContainerStatuses, Status, [])]),
-    {event_type(Kind, Type), Ev};
+    {atom(Kind), Ev};
 
-read_event(Type,
-	   #{code := Code,
+read_event(#{code := Code,
 	     kind := Kind,
 	     message := Message = <<"too old resource version:", Versions/binary>>,
 	     reason := Reason,
@@ -260,55 +265,55 @@ read_event(Type,
 		  binary_to_integer(OldestVersion) - 1
 	      end
 	 },
-    {event_type(Kind, Type), Ev}.
+    {atom(Kind), Ev}.
 
-pod_setup(PodResource, Config, State) ->
-    Pod = pod(PodResource, ?Db:nets_options(Config)),
-    ?LOG(info, "Pod setup:~n~s", [pods_format([Pod])]),
-    ?Net:pod_setup(Pod, Config),
-    ?Agent:terminate(Pod, Config),
-    State.
+%% pod_setup(PodResource, Config, State) ->
+%%     Pod = pod(PodResource, ?Db:nets_options(Config)),
+%%     ?LOG(info, "Pod setup:~n~s", [pods_format([Pod])]),
+%%     ?Net:pod_setup(Pod, Config),
+%%     ?Agent:terminate(Pod, Config),
+%%     State.
 
-pod_join(PodResource, #{config := Config} = Data) ->
-    {Pod, NetPods} = pods(PodResource, Config),
-    ?LOG(info, "Pod joining:~n~s", [pods_format([Pod])]),
-    ?LOG(info, "Pods to join:~n~s", [pods_format(NetPods)]),
-    ?Net:pod_join(Pod, NetPods, Config),
-    Data.
+%% pod_join(PodResource, #{config := Config} = Data) ->
+%%     {Pod, NetPods} = pods(PodResource, Config),
+%%     ?LOG(info, "Pod joining:~n~s", [pods_format([Pod])]),
+%%     ?LOG(info, "Pods to join:~n~s", [pods_format(NetPods)]),
+%%     ?Net:pod_join(Pod, NetPods, Config),
+%%     Data.
 
-pod_leave(PodResource,  #{config := Config} = Data) ->
-    {Pod, NetPods} = pods(PodResource, Config),
-    ?LOG(info, "Pod leaving:~n~s", [pods_format([Pod])]),
-    ?LOG(info, "Pods to leave:~n~s", [pods_format(NetPods)]),
-    ?Net:pod_leave(Pod, NetPods, Config),
-    Data.
+%% pod_leave(PodResource,  #{config := Config} = Data) ->
+%%     {Pod, NetPods} = pods(PodResource, Config),
+%%     ?LOG(info, "Pod leaving:~n~s", [pods_format([Pod])]),
+%%     ?LOG(info, "Pods to leave:~n~s", [pods_format(NetPods)]),
+%%     ?Net:pod_leave(Pod, NetPods, Config),
+%%     Data.
 
-pods(PodResource,  Config) ->
-    GlobalNetsOptions = ?Db:nets_options(Config),
-    Pod = pod(PodResource, GlobalNetsOptions),
+%% pods(PodResource,  Config) ->
+%%     GlobalNetsOptions = ?Db:nets_options(Config),
+%%     Pod = pod(PodResource, GlobalNetsOptions),
 
-    {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-    Filters = [
-	{with_nets, ?Net:pod_net_names(Pod)},
-	{without_pods, [maps:get(name, Pod)]}
-    ],
-    {Pod, ?Tools:pods(PodResources, GlobalNetsOptions, Filters, Config)}.
+%%     {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),
+%%     Filters = [
+%% 	{with_nets, ?Net:pod_net_names(Pod)},
+%% 	{without_pods, [maps:get(name, Pod)]}
+%%     ],
+%%     {Pod, ?Tools:pods(PodResources, GlobalNetsOptions, Filters, Config)}.
 
-pod(#{namespace := Namespace,
-      pod_name := PodName,
-      pod_ip := PodIp,
-      nets_data := NetsData},
-    GlobalNetsOptions) ->
-    #{namespace => Namespace,
-      name => PodName,
-      ip => PodIp,
-      nets => ?Tools:pod_nets(NetsData, GlobalNetsOptions)
-     }.
+%% pod(#{namespace := Namespace,
+%%       pod_name := PodName,
+%%       pod_ip := PodIp,
+%%       nets_data := NetsData},
+%%     GlobalNetsOptions) ->
+%%     #{namespace => Namespace,
+%%       name => PodName,
+%%       ip => PodIp,
+%%       nets => ?Tools:pod_nets(NetsData, GlobalNetsOptions)
+%%      }.
 
-pods_format(Pods) ->
-    Indent = 2,
-    lists:flatten([
-	?Format:pod(Pod) ++ "\n" ++
-	?Format:pod_nets(maps:get(nets, Pod), Indent) ++ "\n" ||
-	Pod <- Pods
-    ]).
+%% pods_format(Pods) ->
+%%     Indent = 2,
+%%     lists:flatten([
+%% 	?Format:pod(Pod) ++ "\n" ++
+%% 	?Format:pod_nets(maps:get(nets, Pod), Indent) ++ "\n" ||
+%% 	Pod <- Pods
+%%     ]).

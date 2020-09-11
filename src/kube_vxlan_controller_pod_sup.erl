@@ -1,15 +1,15 @@
--module(kube_vxlan_controller_agent_sup).
+-module(kube_vxlan_controller_pod_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, exec/1]).
+-export([start_link/0, start_pod/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
--define(Agent, kube_vxlan_controller_agent).
+-define(Pod, kube_vxlan_controller_pod).
 
 %% ===================================================================
 %% API functions
@@ -18,8 +18,8 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-exec(Action) ->
-    supervisor:start_child(?SERVER, [Action]).
+start_pod(Id, Event, Config) ->
+    supervisor:start_child(?SERVER, [Id, Event, Config]).
 
 %% ===================================================================
 %% Supervisor callbacks
@@ -27,4 +27,4 @@ exec(Action) ->
 
 init([]) ->
     {ok, {{simple_one_for_one, 5, 10},
-	  [{?Agent, {?Agent, start_link, []}, temporary, 1000, worker, [?Agent]}]}}.
+	  [{?Pod, {?Pod, start_link, []}, temporary, 1000, worker, [?Pod]}]}}.

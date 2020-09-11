@@ -12,6 +12,8 @@
     version/0
 ]).
 
+-include_lib("kernel/include/logger.hrl").
+
 -define(App, 'kube-vxlan-controller').
 
 -define(OsEnvPrefix, "KVC_").

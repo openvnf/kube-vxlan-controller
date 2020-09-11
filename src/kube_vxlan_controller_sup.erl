@@ -6,7 +6,8 @@
 
 -define(Run, kube_vxlan_controller_run).
 -define(K8s, kube_vxlan_controller_k8s).
--define(AgentSup, kube_vxlan_controller_agent_sup).
+-define(PodReg, kube_vxlan_controller_pod_reg).
+-define(PodSup, kube_vxlan_controller_pod_sup).
 
 %% API
 -export([start_link/1]).
@@ -15,7 +16,12 @@
 -export([init/1]).
 
 %% Helper macro for declaring children of supervisor
--define(CHILD(I, Type, Args), {I, {I, start_link, Args}, permanent, 5000, Type, [I]}).
+-define(CHILD(I, Type, Args), #{id       => I,
+				start    => {I, start_link, Args},
+				restart  => permanent,
+				shutdown => 5000,
+				type     => Type,
+				modules  => [I]}).
 
 %% ===================================================================
 %% API functions
@@ -30,9 +36,14 @@ start_link(Config) ->
 %% ===================================================================
 
 init([Config]) ->
-    {ok, {{one_for_one, 5, 10},
+    SupFlags =
+	#{strategy  => one_for_one,
+	  intensity => 5,
+	  period    => 10},
+    {ok, {SupFlags,
 	  [
-	   ?CHILD(?AgentSup, supervisor, []),
+	   ?CHILD(?PodSup, supervisor, []),
+	   ?CHILD(?PodReg, worker, []),
 	   ?CHILD(?K8s, worker, [Config]),
 	   ?CHILD(?Run, worker, [Config])
 	  ]}}.

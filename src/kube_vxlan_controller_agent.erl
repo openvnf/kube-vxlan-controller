@@ -1,33 +1,16 @@
 -module(kube_vxlan_controller_agent).
 
 -export([terminate/2, exec/3]).
--export([start_link/1, init/2]).
 
--define(Sup, kube_vxlan_controller_agent_sup).
 -define(Pod, kube_vxlan_controller_pod).
 
 terminate(Pod, Config) ->
-    ?Sup:exec({terminate, Pod, Config}).
-
-exec(Pod, Command, Config) ->
-    ?Sup:exec({exec, Pod, Command, Config}).
-
-%%%=======================================================
-
-start_link(Action) ->
-    proc_lib:start_link(?MODULE, init, [self(), Action]).
-
-init(Parent, {terminate, Pod, Config}) ->
-    proc_lib:init_ack(Parent, {ok, self()}),
-
     %%% TODO: provided for BC, remove once not needed
     run(Pod, "touch /run/terminate", Config),
     %%%
-    run(Pod, "kill -TERM 1", Config);
+    run(Pod, "kill -TERM 1", Config).
 
-init(Parent, {exec, Pod, Command, Config}) ->
-    proc_lib:init_ack(Parent, {ok, self()}),
-
+exec(Pod, Command, Config) ->
     run(Pod, Command, Config).
 
 run(#{namespace := Namespace, name := PodName}, Command, Config) ->
