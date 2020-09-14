@@ -2,7 +2,7 @@
     {description, "Kubernetes VXLAN contoller"},
     {vsn, "0.10.3"},
     {modules, []},
-    {applications, [kernel, stdlib, inets, cpflib, jsx, gun]},
+    {applications, [kernel, stdlib, inets, cpflib, jsx, regine, gun]},
     {mod, {'kube-vxlan-controller', []}},
     {env, [
 	{git_sha, lists:sublist(os:cmd("git rev-parse HEAD 2>/dev/null"), 8)},
