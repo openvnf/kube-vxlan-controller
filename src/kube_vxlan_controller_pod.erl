@@ -121,7 +121,7 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%%=========================================================================
 
 next_state(#{init_agent := running}) ->
-    init;
+    setup;
 next_state(#{agent := running}) ->
     join;
 next_state(#{agent := terminated}) ->
