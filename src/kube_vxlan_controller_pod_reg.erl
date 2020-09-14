@@ -5,7 +5,7 @@
 %% API
 -export([start_link/0]).
 -export([register/2, unregister/1, lookup/1]).
--export([process_event/3, all/0]).
+-export([process_event/3, clear/0, all/0]).
 
 %% regine_server callbacks
 -export([init/1, handle_register/4, handle_unregister/3, handle_pid_remove/3,
@@ -18,6 +18,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 -define(SERVER, ?MODULE).
+-define(Pod, kube_vxlan_controller_pod).
 -define(PodSup, kube_vxlan_controller_pod_sup).
 
 %%%===================================================================
@@ -39,6 +40,9 @@ lookup(Key) ->
 	_ ->
 	    {error, not_found}
     end.
+
+clear() ->
+    regine_server:call(?SERVER, clear).
 
 all() ->
     ets:tab2list(?SERVER).
@@ -75,6 +79,11 @@ handle_pid_remove(_Pid, Keys, State) ->
 
 handle_death(_Pid, _Reason, State) ->
     State.
+
+handle_call(clear, _From, State) ->
+    [?Pod:stop(Pid) || {_, Pid} <- ets:tab2list(?SERVER)],
+    ets:delete_all_objects(?SERVER),
+    {reply, ok, State};
 
 handle_call({process_event, Id, Event, Config}, _From, State) ->
     case lookup(Id) of

@@ -3,7 +3,7 @@
 -behavior(gen_statem).
 
 %% API
--export([start_link/3, process_event/3]).
+-export([start_link/3, stop/1, process_event/4]).
 -export([get/1, get/2, get/3, exec/5]).
 
 %% gen_statem callbacks
@@ -29,6 +29,7 @@
 ]).
 
 -record(data, {uid, pod, config}).
+-record(uid, {id, cycle}).
 
 %%%===================================================================
 %%% API
@@ -42,8 +43,11 @@ start_link(Id, Event, Config) ->
     %%Opts = [],
     gen_statem:start_link(?MODULE, [Id, Event, Config], Opts).
 
-process_event(Type, #{pod_uid := UId} = Pod, Config) ->
-    ?PodReg:process_event(UId, {Type, Pod}, Config).
+stop(Server) ->
+    gen_statem:cast(Server, stop).
+
+process_event(Cycle, Type, #{pod_name := Name} = Pod, Config) ->
+    ?PodReg:process_event(#uid{id = Name, cycle = Cycle}, {Type, Pod}, Config).
 
 %%%===================================================================
 %%% gen_statem callbacks
@@ -62,7 +66,7 @@ handle_event(enter, _, pending, _Data) ->
 
 handle_event(enter, _, setup, #data{uid = Id, config = Config,
 				    pod = #{pod_name := Name} = PodResource}) ->
-    ?LOG(debug, "====== Pod ~s (~p): Setup", [Name, Id]),
+    ?LOG(debug, "====== Pod ~s (~p): Setup", [Name, Id#uid.id]),
 
     UseInitAgentConfig =
 	Config#{agent_container_name => maps:get(agent_init_container_name, Config)},
@@ -76,7 +80,7 @@ handle_event(enter, _, setup, #data{uid = Id, config = Config,
 
 handle_event(enter, _, join, #data{uid = Id, config = Config,
 				   pod = #{pod_name := Name} = PodResource}) ->
-    ?LOG(debug, "====== Pod ~s (~p): Join", [Name, Id]),
+    ?LOG(debug, "====== Pod ~s (~p): Join", [Name, Id#uid.id]),
 
     {Pod, NetPods} = pods(PodResource, Config),
     ?LOG(info, "Pod joining:~n~s", [pods_format([Pod])]),
@@ -87,7 +91,7 @@ handle_event(enter, _, join, #data{uid = Id, config = Config,
 
 handle_event(enter, _, leave, #data{uid = Id, config = Config,
 				   pod = #{pod_name := Name} = PodResource}) ->
-    ?LOG(debug, "====== Pod ~s (~p): Leave", [Name, Id]),
+    ?LOG(debug, "====== Pod ~s (~p): Leave", [Name, Id#uid.id]),
 
     {Pod, NetPods} = pods(PodResource, Config),
     ?LOG(info, "Pod leaving:~n~s", [pods_format([Pod])]),
@@ -97,17 +101,25 @@ handle_event(enter, _, leave, #data{uid = Id, config = Config,
     keep_state_and_data;
 
 handle_event(enter, _, State, #data{uid = Id, pod = #{pod_name := Name}}) ->
-    ?LOG(debug, "====== Pod ~s (~p): Enter ~p", [Name, Id, State]),
+    ?LOG(debug, "====== Pod ~s (~p): Enter ~p", [Name, Id#uid.id, State]),
     keep_state_and_data;
 
 handle_event(info, {deleted, _Pod}, State, #data{uid = Id}) ->
-    ?LOG(debug, "====== Pod ~p: Terminated in state ~p", [Id, State]),
+    ?LOG(debug, "====== Pod ~p: Terminated in state ~p", [Id#uid.id, State]),
     {stop, normal};
 
-handle_event(info, {_, Pod}, _State, #data{uid = Id} = Data) ->
-    NextState = next_state(Pod),
-    ?LOG(debug, "====== Pod ~p: ~p", [Id, NextState]),
+handle_event(info, {_, Pod}, State, #data{uid = Id} = Data) ->
+    NextState = next_state(Pod, State),
+    ?LOG(debug, "====== Pod ~p: ~p", [Id#uid.id, NextState]),
     {next_state, NextState, Data#data{pod = Pod}};
+
+handle_event(cast, stop, State, #data{uid = Id} = _Data) ->
+    ?LOG(debug, "====== Pod ~p: In ~w, CleanUp Stop", [Id#uid.id, State]),
+    {stop, normal};
+
+handle_event(_, {gun_down, _,ws ,normal, _}, _State, _Data) ->
+    %% normal gun Ws termination
+    keep_state_and_data;
 
 handle_event(_Ev, _Msg, _State, _Data) ->
     ?LOG(debug, "Ev: ~p, Msg: ~p, State: ~p", [_Ev, _Msg, _State]),
@@ -123,14 +135,14 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%%  internal functions
 %%%=========================================================================
 
-next_state(#{init_agent := running}) ->
+next_state(#{init_agent := running}, _) ->
     setup;
-next_state(#{agent := running}) ->
+next_state(#{agent := running}, _) ->
     join;
-next_state(#{agent := terminated}) ->
+next_state(#{agent := terminated}, _) ->
     leave;
-next_state(_) ->
-    pending.
+next_state(_, State) ->
+    State.
 
 pods(PodResource,  Config) ->
     GlobalNetsOptions = ?Db:nets_options(Config),
