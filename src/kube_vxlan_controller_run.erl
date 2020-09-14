@@ -170,6 +170,11 @@ handle_event(info, {gun_data, ConnPid, StreamRef, nofin, Bin}, State,
     Data = handle_api_data(State, Bin, Data0),
     {keep_state, Data};
 
+handle_event(info, {gun_data, ConnPid, StreamRef, fin, Bin}, {watch, data} = State,
+	     #{conn := ConnPid, stream := StreamRef} = Data0) ->
+    Data = handle_api_data(State, Bin, Data0),
+    {next_state, {watch, init}, maps:remove(stream, Data)};
+
 handle_event(info, {gun_down, ConnPid, _Protocol, State, _Streams}, _, #{conn := ConnPid}) ->
     ?LOG(debug, "~p: connection closed with ~p", [ConnPid, State]),
     {stop, normal};
