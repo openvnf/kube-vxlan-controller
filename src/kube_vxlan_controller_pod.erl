@@ -64,10 +64,13 @@ handle_event(enter, _, setup, #data{uid = Id, config = Config,
 				    pod = #{pod_name := Name} = PodResource}) ->
     ?LOG(debug, "====== Pod ~s (~p): Setup", [Name, Id]),
 
-    Pod = pod(PodResource, ?Db:nets_options(Config)),
+    UseInitAgentConfig =
+	Config#{agent_container_name => maps:get(agent_init_container_name, Config)},
+
+    Pod = pod(PodResource, ?Db:nets_options(UseInitAgentConfig)),
     ?LOG(info, "Pod setup:~n~s", [pods_format([Pod])]),
-    ?Net:pod_setup(Pod, Config),
-    ?Agent:terminate(Pod, Config),
+    ?Net:pod_setup(Pod, UseInitAgentConfig),
+    ?Agent:terminate(Pod, UseInitAgentConfig),
 
     keep_state_and_data;
 
