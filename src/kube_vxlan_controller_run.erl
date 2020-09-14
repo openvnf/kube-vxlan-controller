@@ -52,9 +52,7 @@ init([#{server := Server,
     ResourceVersion = ?Db:load_resource_version(Selector, Config),
     Data0 = ?State:set_resource_version(ResourceVersion, Config),
 
-    #{host := Host,
-      port := Port} = uri_string:parse(Server),
-
+    {Host, Port} = ?K8s:uri_parse(Server),
     Opts = #{connect_timeout => ?TIMEOUT,
 	     protocols => [http2],
 	     transport => tls,

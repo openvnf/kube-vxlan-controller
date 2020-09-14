@@ -1,6 +1,7 @@
 -module(kube_vxlan_controller_k8s).
 
--export([http_request/3, http_request/6,
+-export([uri_parse/1,
+	 http_request/3, http_request/6,
 	 ws_connect/3, ws_close/1, ws_recv/2]).
 
 %% API
@@ -40,9 +41,7 @@ init([#{server := Server,
 	ca_cert_file := CaCertFile} = Config]) ->
     process_flag(trap_exit, true),
 
-    #{host := Host,
-      port := Port} = uri_string:parse(Server),
-
+    {Host, Port} = uri_parse(Server),
     Opts = #{connect_timeout => ?TIMEOUT,
 	     protocols => [http2],
 	     transport => tls,
@@ -119,9 +118,7 @@ http_request(Method, Resource, Query, RequestHeaders, RequestBody,
 
 ws_connect(Resource, Query,
 	   #{server := Server, ca_cert_file := CaCertFile, token := Token}) ->
-    #{host := Host,
-      port := Port} = uri_string:parse(Server),
-
+    {Host, Port} = uri_parse(Server),
     Opts = #{connect_timeout => ?HttpStreamRecvTimeout,
 	     protocols => [http],
 	     transport => tls,
@@ -189,3 +186,12 @@ headers(Token, Headers) ->
 
 method(Method) when is_atom(Method) ->
     list_to_binary(string:uppercase(atom_to_list(Method))).
+
+uri_parse(Server) ->
+    #{host := Host} = URI = uri_string:parse(Server),
+    Port = uri_port(URI),
+    {Host, Port}.
+
+uri_port(#{port := Port}) ->
+    Port;
+uri_port(_) -> 443.
