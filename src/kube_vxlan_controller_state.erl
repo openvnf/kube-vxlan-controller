@@ -26,7 +26,16 @@ event(Event, State) -> maps:get(Event, State, sets:new()).
 resource_version(State) ->
     maps:get(resource_version, State, "0").
 
-set_resource_version(#{resource_version := Value}, State) ->
+set_resource_version(Version, State) when is_integer(Version) ->
+    maps:put(resource_version, Version, State);
+set_resource_version(#{resource_version := Value}, State)
+  when is_integer(Value) ->
+    update_resource_version(Value, State);
+set_resource_version(#{resourceVersion := Value}, State)
+  when is_binary(Value) ->
+    update_resource_version(binary_to_integer(Value), State).
+
+update_resource_version(Value, State) ->
     OldValue = resource_version(State),
     ProposedValue = Value,
 
@@ -36,10 +45,7 @@ set_resource_version(#{resource_version := Value}, State) ->
             NewState = set_resource_version_unshown(State),
             set_resource_version(NewValue, NewState);
         false -> State
-    end;
-
-set_resource_version(Version, State) ->
-    maps:put(resource_version, Version, State).
+    end.
 
 is_resource_version_shown(State) ->
     maps:get(resource_version_shown, State, false).

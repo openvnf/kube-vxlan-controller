@@ -79,18 +79,9 @@ handle_event(info, {'DOWN', MRef, process, ConnPid, Reason}, _,
 handle_event(info, {gun_up, ConnPid, _Protocol}, init,
 	     #{conn := ConnPid,
 	       selector := Selector,
-	       token := Token} = Data0) ->
+	       token := Token} = Data) ->
 
-    kube_vxlan_controller_db:load_db(Data0),
-    ResourceVersion = ?State:resource_version(Data0),
-    Data =
-	case ?State:is_resource_version_shown(Data0) of
-	    true -> Data0;
-	    false ->
-		?LOG(info, "Watching pods (selector: ~s) from version: ~w",
-		     [Selector, ResourceVersion]),
-		?State:set_resource_version_shown(Data0)
-	end,
+    kube_vxlan_controller_db:load_db(Data),
 
     Resource = "/api/v1/pods",
     Query =
@@ -235,18 +226,15 @@ process_api_object({watch, _}, #{type := Type, object := Object}, Data) ->
     process_event(Kind, atom(Type), Resource, Data),
     ?State:set_resource_version(Resource, Data);
 
-process_api_object({loading, _}, #{items := Pods}, Data) ->
-    lists:foldl(
-      fun(Pod, Acc) ->
-	      {Kind, Resource} = read_event(Pod#{kind => pod}, Acc),
-	      %%?LOG(debug, #{event => EventType, resource => Resource}),
-
-	      process_event(Kind, init, Resource, Acc),
-	      ?State:set_resource_version(Resource, Acc)
-      end, Data, Pods).
+process_api_object({loading, _}, #{items := Pods, metadata := Meta}, Data) ->
+    lists:foreach(
+      fun(Pod) ->
+	      {Kind, Resource} = read_event(Pod#{kind => pod}, Data),
+	      process_event(Kind, init, Resource, Data)
+      end, Pods),
+    ?State:set_resource_version(Meta, Data).
 
 process_event(pod, Type, #{pod_name := Name} = Pod, #{cycle := Cycle, config := Config}) ->
-    ?LOG(info, "POD: ~p -> ~p", [Name, Type]),
     ?Pod:process_event(Cycle, Type, Pod, Config),
     ok;
 process_event(_Kind, _Type, _Resource, _Data) ->
