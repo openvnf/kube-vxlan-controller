@@ -1,0 +1,1 @@
+-record(uid, {id, cycle}).

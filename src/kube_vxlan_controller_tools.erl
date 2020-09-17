@@ -1,6 +1,9 @@
 -module(kube_vxlan_controller_tools).
 
+-include_lib("kernel/include/logger.hrl").
+
 -export([
+    pods/2,
     pods/4,
     pod/4,
 
@@ -13,6 +16,10 @@
 
 -define(NetType, "vxlan").
 -define(NetDev, "eth0").
+
+pods(Pods, Filters) ->
+    lists:filtermap(
+      fun(Pod) -> pod_apply_filters(Pod, Filters) end, Pods).
 
 pods(PodResources, GlobalNetsOptions, Filters, Config) ->
     lists:filtermap(fun(PodResource) ->

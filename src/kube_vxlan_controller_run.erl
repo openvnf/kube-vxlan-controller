@@ -104,6 +104,7 @@ handle_event(enter, _, {watch, init}, #{pending := Pending})
 handle_event(enter, _, {watch, init},
 	     #{conn := ConnPid, selector := Selector, token := Token} = Data0) ->
 
+    init_pods(),
     ResourceVersion = ?State:resource_version(Data0),
     Data =
 	case ?State:is_resource_version_shown(Data0) of
@@ -295,3 +296,11 @@ read_event(#{code := Code,
 	      end
 	 },
     {atom(Kind), Ev}.
+
+init_pods() ->
+    lists:foreach(
+      fun({Id, Pid, Pod}) when is_map(Pod) ->
+	      ?Pod:init_state(Pid);
+	 (_) ->
+	      ok
+      end, ?PodReg:all()).
