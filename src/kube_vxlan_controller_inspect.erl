@@ -20,7 +20,7 @@ nets(NetNames, Config) ->
     SilentConfig = maps:put(silent, true, Config),
 
     {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-    Pods = ?Tools:pods(PodResources, ?Db:nets_options(Config),
+    Pods = ?Tools:pods(PodResources, ?Db:nets_options(),
                        [{with_nets, NetNames}], Config),
     lists:foreach(fun(NetName) ->
         io:format("[~s]~n", [NetName]),

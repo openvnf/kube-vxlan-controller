@@ -71,7 +71,7 @@ handle_event(enter, _, setup, #data{uid = Id, config = Config,
     UseInitAgentConfig =
 	Config#{agent_container_name => maps:get(agent_init_container_name, Config)},
 
-    Pod = pod(PodResource, ?Db:nets_options(UseInitAgentConfig)),
+    Pod = pod(PodResource, ?Db:nets_options()),
     ?LOG(info, "Pod setup:~n~s", [pods_format([Pod])]),
     ?Net:pod_setup(Pod, UseInitAgentConfig),
     ?Agent:terminate(Pod, UseInitAgentConfig),
@@ -145,7 +145,7 @@ next_state(_, State) ->
     State.
 
 pods(PodResource,  Config) ->
-    GlobalNetsOptions = ?Db:nets_options(Config),
+    GlobalNetsOptions = ?Db:nets_options(),
     Pod = pod(PodResource, GlobalNetsOptions),
 
     {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),

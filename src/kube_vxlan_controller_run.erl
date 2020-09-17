@@ -51,8 +51,7 @@ init([#{server := Server,
     process_flag(trap_exit, true),
 
     ?PodReg:clear(),
-    ResourceVersion = ?Db:load_resource_version(Selector, Config),
-    Data0 = ?State:set_resource_version(ResourceVersion, Config),
+    Data0 = ?State:set_resource_version(0, Config),
 
     {Host, Port} = ?K8s:uri_parse(Server),
     Opts = #{connect_timeout => ?TIMEOUT,
@@ -82,6 +81,7 @@ handle_event(info, {gun_up, ConnPid, _Protocol}, init,
 	       selector := Selector,
 	       token := Token} = Data0) ->
 
+    kube_vxlan_controller_db:load_db(Data0),
     ResourceVersion = ?State:resource_version(Data0),
     Data =
 	case ?State:is_resource_version_shown(Data0) of
@@ -223,7 +223,6 @@ process_api_data(State, Bin, #{selector := Selector} = Data0) ->
 	    Data = process_api_object(State, Object, Data0),
 
 	    ResourceVersion = ?State:resource_version(Data),
-	    ?Db:save_resource_version(Selector, ResourceVersion, Data),
 	    Data;
 
 	Ev ->
