@@ -3,7 +3,7 @@
 -behavior(gen_statem).
 
 %% API
--export([start_link/3, stop/1, init_state/1, process_event/4]).
+-export([start_link/3, stop/1, init_state/1, process_event/4, bridge_cmd/5]).
 -export([get/1, get/2, get/3, exec/5]).
 
 %% gen_statem callbacks
@@ -29,13 +29,14 @@
     {"stderr", "true"}
 ]).
 
--record(data, {uid, pod, config}).
+-record(data, {uid, pod, bridges, config}).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
--define(DEBUG_OPTS, [{install, {fun logger_sys_debug:logger_gen_statem_trace/3, ?MODULE}}]).
+%%-define(DEBUG_OPTS, [{install, {fun logger_sys_debug:logger_gen_statem_trace/3, ?MODULE}}]).
+-define(DEBUG_OPTS, []).
 -define(JsonDecodeOptions, [return_maps, {labels, atom}]).
 
 start_link(Id, Event, Config) ->
@@ -52,6 +53,9 @@ init_state(Server) ->
 process_event(Cycle, Type, #{pod_name := Name} = Pod, Config) ->
     ?PodReg:process_event(#uid{id = Name, cycle = Cycle}, {Type, Pod}, Config).
 
+bridge_cmd(Action, Version, #{owner := Pid} = Pod, NetNames, IP) ->
+    gen_statem:cast(Pid, {bridge_cmd, Action, Version, Pod, NetNames, IP}).
+
 %%%===================================================================
 %%% gen_statem callbacks
 %%%===================================================================
@@ -60,7 +64,7 @@ callback_mode() -> [handle_event_function, state_enter].
 
 init([Id, Event, Config]) ->
     ?LOG(info, "Pod ~p started", [Id]),
-    Data = #data{uid = Id, pod = #{}, config = Config},
+    Data = #data{uid = Id, pod = #{}, bridges = #{}, config = Config},
     self() ! Event,
     {ok, pending, Data}.
 
@@ -81,27 +85,25 @@ handle_event(enter, _, setup, #data{uid = Id, config = Config,
 
     keep_state_and_data;
 
-handle_event(enter, _, join, #data{uid = Id, config = Config,
-				   pod = #{pod_name := Name} = PodResource}) ->
+handle_event(enter, _, join, #data{uid = Id, pod = #{pod_name := Name} = PodResource}) ->
     ?LOG(debug, "====== Pod ~s (~p): Join", [Name, Id#uid.id]),
 
-    {Pod, NetPods} = pods(Id, PodResource, Config),
-    ?LOG(info, "Pod joining:~n~s", [pods_format([Pod])]),
-    ?LOG(info, "Pods to join:~n~s", [pods_format(NetPods)]),
+    {Pod, NetPods} = pods(Id, PodResource),
+    ?LOG(info, "Pod joining (~p):~n~s", [Id#uid.id, pods_format([Pod])]),
+    ?LOG(info, "Pods to join (~p):~n~s", [Id#uid.id, pods_format(NetPods)]),
 
-    ?Net:pod_join(Pod, NetPods, Config),
+    ?Net:pod_join(Pod, NetPods),
 
     keep_state_and_data;
 
-handle_event(enter, _, leave, #data{uid = Id, config = Config,
-				   pod = #{pod_name := Name} = PodResource}) ->
+handle_event(enter, _, leave, #data{uid = Id, pod = #{pod_name := Name} = PodResource}) ->
     ?LOG(debug, "====== Pod ~s (~p): Leave", [Name, Id#uid.id]),
     ?PodReg:unset(Id),
 
-    {Pod, NetPods} = pods(Id, PodResource, Config),
-    ?LOG(info, "Pod leaving:~n~s", [pods_format([Pod])]),
-    ?LOG(info, "Pods to leave:~n~s", [pods_format(NetPods)]),
-    ?Net:pod_leave(Pod, NetPods, Config),
+    {Pod, NetPods} = pods(Id, PodResource),
+    ?LOG(info, "Pod leaving (~p):~n~s", [Id#uid.id, pods_format([Pod])]),
+    ?LOG(info, "Pods to leave (~p):~n~s", [Id#uid.id, pods_format(NetPods)]),
+    ?Net:pod_leave(Pod, NetPods),
 
     keep_state_and_data;
 
@@ -109,8 +111,12 @@ handle_event(enter, _, State, #data{uid = Id, pod = #{pod_name := Name}}) ->
     ?LOG(debug, "====== Pod ~s (~p): Enter ~p", [Name, Id#uid.id, State]),
     keep_state_and_data;
 
+handle_event(info, {deleted, _Pod}, join = State, #data{uid = Id} = Data) ->
+    ?LOG(debug, "====== Pod ~p: deleted in state ~p", [Id#uid.id, State]),
+    {next_state, leave, Data, [postpone]};
+
 handle_event(info, {deleted, _Pod}, State, #data{uid = Id}) ->
-    ?LOG(debug, "====== Pod ~p: Terminated in state ~p", [Id#uid.id, State]),
+    ?LOG(debug, "====== Pod ~p: deleted in state ~p", [Id#uid.id, State]),
     {stop, normal};
 
 handle_event(info, {init, Pod}, State, #data{uid = Id} = Data) ->
@@ -120,23 +126,33 @@ handle_event(info, {init, Pod}, State, #data{uid = Id} = Data) ->
 	_ ->
 	    true = ?PodReg:set(Id, pod(Pod, ?Db:nets_options()))
     end,
-    ?LOG(debug, "====== Pod ~p: ~p", [Id#uid.id, State]),
+    ?LOG(debug, "====== Pod ~p: init in ~p", [Id#uid.id, State]),
     {keep_state, Data#data{pod = Pod}};
 
 handle_event(info, {_, Pod}, State, #data{uid = Id} = Data) ->
     NextState = next_state(Pod, State),
     true = ?PodReg:set(Id, pod(Pod, ?Db:nets_options())),
-    ?LOG(debug, "====== Pod ~p: ~p", [Id#uid.id, NextState]),
+    ?LOG(debug, "====== Pod ~p: ~p -> ~p", [Id#uid.id, State, NextState]),
     {next_state, NextState, Data#data{pod = Pod}};
 
 handle_event(cast, init, pending = State, #data{uid = Id, pod = Pod} = Data) ->
     NextState = next_state(Pod, State),
-    ?LOG(debug, "====== Pod ~p: ~p", [Id#uid.id, NextState]),
+    ?LOG(debug, "====== Pod ~p: ~p -> ~p", [Id#uid.id, State, NextState]),
     {next_state, NextState, Data};
 
 handle_event(cast, stop, State, #data{uid = Id} = _Data) ->
     ?LOG(debug, "====== Pod ~p: In ~w, CleanUp Stop", [Id#uid.id, State]),
     {stop, normal};
+
+handle_event(cast, {bridge_cmd, Action, Version, Pod, NetNames, IP}, join, Data0) ->
+    Data = bridges(Action, Version, Pod, NetNames, IP, Data0),
+    {keep_state, Data};
+handle_event(cast, {bridge_cmd, _, _, _, _}, leave, #data{uid = Id}) ->
+    ?LOG(debug, "====== Pod ~p: skipping bridge_cmd in state leave", [Id]),
+    keet_state_and_data;
+handle_event(cast, {bridge_cmd, _, _, _, _}, State, #data{uid = Id}) ->
+    ?LOG(debug, "====== Pod ~p: postpone bridge_cmd in state ~p", [Id, State]),
+    {keep_state_and_data, postpone};
 
 handle_event(_, {gun_down, _,ws ,normal, _}, _State, _Data) ->
     %% normal gun Ws termination
@@ -165,26 +181,46 @@ next_state(#{agent := terminated}, _) ->
 next_state(_, State) ->
     State.
 
-pods(Id, PodResource, Config) ->
+bridges(Action, Version, Pod, NetNames, IP, Data) ->
+    lists:foldl(
+      fun(NetName, D) -> bridge(Action, Version, Pod, NetName, IP, D) end, Data, NetNames).
 
+bridge_action(delete, Key, _ActionVersion, #data{bridges = Bridges} = Data) ->
+    Data#data{bridges = maps:remove(Key, Bridges)};
+bridge_action(Action, Key, ActionVersion, #data{bridges = Bridges} = Data) ->
+    Data#data{bridges = maps:put(Key, ActionVersion, Bridges)}.
+
+bridge(Action, ActionVersion, Pod, NetName, IP,
+       #data{uid = Id, bridges = Bridges, config = Config} = Data) ->
+    Key = {NetName, IP},
+    case maps:get(Key, Bridges, 0) of
+	Version when Version < ActionVersion ->
+	    ?LOG(debug, "====== Pod ~p: executing bridge_cmd ~0p for ~0p, ~0p < ~0p",
+		 [Id#uid.id, Action, Key, Version, ActionVersion]),
+	    ?Net:bridge(Action, Pod, NetName, IP, Config),
+	    bridge_action(Action, Key, ActionVersion, Data);
+	Version ->
+	    ?LOG(debug, "====== Pod ~p: skipping bridge_cmd ~0p for ~0p, ~0p > ~0p",
+		 [Id#uid.id, Action, Key, Version, ActionVersion]),
+	    Data
+    end.
+
+pods(Id, PodResource) ->
     GlobalNetsOptions = ?Db:nets_options(),
     Pod = pod(PodResource, GlobalNetsOptions),
 
-    {ok, PodResources} = ?Pod:get({label, maps:get(selector, Config)}, Config),
-    Filters = [
-	{with_nets, ?Net:pod_net_names(Pod)},
-	{without_pods, [maps:get(name, Pod)]}
-    ],
-
+    Filters =
+	[{with_nets, ?Net:pod_net_names(Pod)},
+	 {without_pods, [maps:get(name, Pod)]}],
     NetPods = ?Tools:pods(?PodReg:all(Id#uid.cycle), Filters),
     {Pod, NetPods}.
 
-pod(#{namespace := Namespace,
-      pod_name := PodName,
-      pod_ip := PodIp,
-      nets_data := NetsData},
+pod(#{namespace := Namespace, pod_name := PodName, pod_ip := PodIp,
+	  nets_data := NetsData, resource_version := Version},
     GlobalNetsOptions) ->
-    #{namespace => Namespace,
+    #{owner => self(),
+      version => Version,
+      namespace => Namespace,
       name => PodName,
       ip => PodIp,
       nets => ?Tools:pod_nets(NetsData, GlobalNetsOptions)

@@ -45,9 +45,7 @@ start_link(Config) ->
 
 callback_mode() -> [handle_event_function, state_enter].
 
-init([#{server := Server,
-	ca_cert_file := CaCertFile,
-	selector := Selector} = Config]) ->
+init([#{server := Server, ca_cert_file := CaCertFile} = Config]) ->
     process_flag(trap_exit, true),
 
     ?PodReg:clear(),
@@ -209,13 +207,10 @@ handle_api_data(State, #{pending := In} = Data0) ->
 	    handle_api_data(State, Data#{pending => Tail})
     end.
 
-process_api_data(State, Bin, #{selector := Selector} = Data0) ->
+process_api_data(State, Bin, Data0) ->
     case jsx:decode(Bin, ?JsonDecodeOptions) of
 	Object when is_map(Object) ->
-	    Data = process_api_object(State, Object, Data0),
-
-	    ResourceVersion = ?State:resource_version(Data),
-	    Data;
+	    process_api_object(State, Object, Data0);
 
 	Ev ->
 	    ?LOG(info, "unexpected message from k8s: ~p", [Ev]),
@@ -235,7 +230,7 @@ process_api_object({loading, _}, #{items := Pods, metadata := Meta}, Data) ->
       end, Pods),
     ?State:set_resource_version(Meta, Data).
 
-process_event(pod, Type, #{pod_name := Name} = Pod, #{cycle := Cycle, config := Config}) ->
+process_event(pod, Type, Pod, #{cycle := Cycle, config := Config}) ->
     ?Pod:process_event(Cycle, Type, Pod, Config),
     ok;
 process_event(_Kind, _Type, _Resource, _Data) ->
@@ -299,7 +294,7 @@ read_event(#{code := Code,
 
 init_pods() ->
     lists:foreach(
-      fun({Id, Pid, Pod}) when is_map(Pod) ->
+      fun({_Id, Pid, Pod}) when is_map(Pod) ->
 	      ?Pod:init_state(Pid);
 	 (_) ->
 	      ok

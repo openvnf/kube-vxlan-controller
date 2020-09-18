@@ -37,8 +37,7 @@ open() ->
 
 callback_mode() -> handle_event_function.
 
-init([#{server := Server,
-	ca_cert_file := CaCertFile} = Config]) ->
+init([#{server := Server, ca_cert_file := CaCertFile}]) ->
     process_flag(trap_exit, true),
 
     {Host, Port} = uri_parse(Server),
@@ -63,7 +62,7 @@ handle_event(info, {'DOWN', MRef, process, ConnPid, Reason}, _,
 handle_event(info, {gun_up, ConnPid, _Protocol}, init, #{conn := ConnPid} = Data) ->
     ?LOG(info, "Command Channel UP Protocol: ~p", [_Protocol]),
     {next_state, up, Data};
-handle_event(info, {gun_error, ConnPid, Reason}, _, #{conn := ConnPid} = Data) ->
+handle_event(info, {gun_error, ConnPid, Reason}, _, #{conn := ConnPid}) ->
     ?LOG(error, "Connection Error: ~p", [Reason]),
     gun:close(ConnPid),
     {stop, normal};

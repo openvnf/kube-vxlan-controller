@@ -2,11 +2,11 @@
 
 -export([
     pod_setup/2,
-    pod_join/3,
-    pod_leave/3,
+    pod_join/2,
+    pod_leave/2,
 
     links/3, links/4, link/4,
-    bridges/4, bridges/5, bridge/5,
+    bridge/5,
 
     bridge_macs/4,
     vxlan_id/3,
@@ -20,6 +20,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 
+-define(Pod, kube_vxlan_controller_pod).
 -define(Agent, kube_vxlan_controller_agent).
 
 pod_setup(Pod, Config) ->
@@ -28,18 +29,19 @@ pod_setup(Pod, Config) ->
     links(up, Pod, Config),
     links(route, Pod, Config).
 
-pod_join(Pod, NetPods, Config) ->
-    lists:foreach(fun(NetPod) ->
-	NetNames = common_pod_net_names(Pod, NetPod),
-	bridges(append, NetPod, NetNames, maps:get(ip, Pod), Config),
-	bridges(append, Pod, NetNames, maps:get(ip, NetPod), Config)
-    end, NetPods).
+pod_join(#{version := Version} = Pod, NetPods) ->
+    lists:foreach(
+      fun(NetPod) ->
+	      NetNames = common_pod_net_names(Pod, NetPod),
+	      ?Pod:bridge_cmd(append, Version, NetPod, NetNames, maps:get(ip, Pod)),
+	      ?Pod:bridge_cmd(append, Version, Pod, NetNames, maps:get(ip, NetPod))
+      end, NetPods).
 
-pod_leave(Pod, NetPods, Config) ->
+pod_leave(#{version := Version} = Pod, NetPods) ->
     lists:foreach(fun(NetPod) ->
 	NetNames = common_pod_net_names(Pod, NetPod),
-	bridges(delete, Pod, NetNames, maps:get(ip, NetPod), Config),
-	bridges(delete, NetPod, NetNames, maps:get(ip, Pod), Config)
+	?Pod:bridge_cmd(delete, Version, Pod, NetNames, maps:get(ip, NetPod)),
+	?Pod:bridge_cmd(delete, Version, NetPod, NetNames, maps:get(ip, Pod))
     end, NetPods).
 
 links(Action, Pod, Config) ->
@@ -85,22 +87,22 @@ link(route, Pod, NetName, Config) ->
 	?Agent:exec(Pod, Command, Config)
     end.
 
-bridges(Action, Pod, TargetIp, Config) ->
-    bridges(Action, Pod, pod_net_names(Pod), TargetIp, Config).
-
-bridges(Action, Pod, NetNames, TargetIp, Config) ->
-    lists:foreach(fun(NetName) ->
-	bridge(Action, Pod, NetName, TargetIp, Config)
-    end, NetNames).
-
 bridge(append, Pod, NetName, TargetIp, Config) ->
-    BridgeMacs = bridge_macs(Pod, NetName, TargetIp, Config),
-    BridgeExists = lists:member("00:00:00:00:00:00", BridgeMacs),
-    BridgeExists orelse begin
-	Command = cmd("bridge fdb append to 00:00:00:00:00:00 dst ~s dev ~s",
-		      [TargetIp, name], Pod, NetName),
-	?Agent:exec(Pod, Command, Config)
-    end;
+    Command = cmd("bridge fdb append to 00:00:00:00:00:00 dst ~s dev ~s",
+		  [TargetIp, name], Pod, NetName),
+    ?Agent:exec(Pod, Command, Config);
+
+%% we can sunconditional try to add the FDB, attempting to
+%% add an existing FDB doesn't hurt
+%%
+%% bridge(append, Pod, NetName, TargetIp, Config) ->
+%%     BridgeMacs = bridge_macs(Pod, NetName, TargetIp, Config),
+%%     BridgeExists = lists:member("00:00:00:00:00:00", BridgeMacs),
+%%     BridgeExists orelse begin
+%% 	Command = cmd("bridge fdb append to 00:00:00:00:00:00 dst ~s dev ~s",
+%% 		      [TargetIp, name], Pod, NetName),
+%% 	?Agent:exec(Pod, Command, Config)
+%%     end;
 
 bridge(delete, Pod, NetName, TargetIp, Config) ->
     lists:foreach(fun(Mac) ->
@@ -113,7 +115,7 @@ bridge_macs(Pod, NetName, TargetIp, Config) ->
     Command = cmd("bridge fdb show dev ~s", [name], Pod, NetName),
     Result = ?Agent:exec(Pod, Command, Config),
     ?LOG(debug, "Exec Result: ~p", [Result]),
-    [Mac || FdbRecord <- string:lexemes(Result, "\n"),
+    [Mac || FdbRecord <- string:lexemes(binary_to_list(Result), "\n"),
 	    [Mac, "dst", Ip|_ ] <- [string:lexemes(FdbRecord, " ")],
 	    Ip == TargetIp].
 
@@ -121,7 +123,7 @@ vxlan_id(Pod, NetName, Config) ->
     Command = cmd("ip -d link show ~s", [name], Pod, NetName),
     Result = ?Agent:exec(Pod, Command, Config),
 
-    List = [Id || Line <- string:lexemes(Result, "\n"),
+    List = [Id || Line <- string:lexemes(binary_to_list(Result), "\n"),
 	    ["vxlan", "id", Id|_] <- [string:lexemes(Line, " ")]],
     List /= [] andalso {true, hd(List)}.
 
@@ -129,7 +131,7 @@ ips(Pod, NetName, Config) ->
     Command = cmd("ip addr show dev ~s", [name], Pod, NetName),
     Result = ?Agent:exec(Pod, Command, Config),
 
-    [Ip || Line <- string:lexemes(Result, "\n"),
+    [Ip || Line <- string:lexemes(binary_to_list(Result), "\n"),
      ["inet", Ip|_] <- [string:lexemes(Line, " ")]].
 
 common_pod_net_names(Pod1, Pod2) ->
