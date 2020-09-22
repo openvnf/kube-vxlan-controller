@@ -1,19 +1,19 @@
 -module(kube_vxlan_controller_agent).
 
--export([
-    terminate/2,
-    exec/3
-]).
+-export([terminate/2, exec/3]).
 
 -define(Pod, kube_vxlan_controller_pod).
 
 terminate(Pod, Config) ->
     %%% TODO: provided for BC, remove once not needed
-    exec(Pod, "touch /run/terminate", Config),
+    run(Pod, "touch /run/terminate", Config),
     %%%
-    exec(Pod, "kill -TERM 1", Config).
+    run(Pod, "kill -TERM 1", Config).
 
-exec(#{namespace := Namespace, name := PodName}, Command, Config) ->
+exec(Pod, Command, Config) ->
+    run(Pod, Command, Config).
+
+run(#{namespace := Namespace, name := PodName}, Command, Config) ->
     ContainerName = maps:get(agent_container_name, Config),
     ?Pod:exec(Namespace, PodName, ContainerName, Command, Config).
 
@@ -31,7 +31,7 @@ exec(#{namespace := Namespace, name := PodName}, Command, Config) ->
 %}).
 %
 %embed(Namespace, DeploymentName, Config) ->
-%    ?Log:info("Embedding agent into \"~s\" deployment", [DeploymentName]),
+%    ?LOG(info, "Embedding agent into \"~s\" deployment", [DeploymentName]),
 %
 %    Resource = "/apis/apps/v1beta2/namespaces/" ++ Namespace ++
 %               "/deployments/" ++ binary_to_list(DeploymentName),
@@ -41,7 +41,7 @@ exec(#{namespace := Namespace, name := PodName}, Command, Config) ->
 %    Body = jsx:encode(?AgentSpec),
 %
 %    {ok, Data} = ?K8s:http_request(patch, Resource, [], Headers, Body, Config),
-%    ?Log:info(Data),
+%    ?LOG(info, Data),
 %    ok.
 %
 %get_deployment_name(Namespace, ReplicaSetName) ->

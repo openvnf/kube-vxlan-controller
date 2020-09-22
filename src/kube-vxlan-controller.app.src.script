@@ -2,24 +2,24 @@
     {description, "Kubernetes VXLAN contoller"},
     {vsn, "0.10.3"},
     {modules, []},
-    {applications, [kernel, stdlib, inets, cpflib, hackney, ewsc, jsx]},
+    {applications, [kernel, stdlib, inets, cpflib, jsx, regine, gun]},
+    {mod, {'kube-vxlan-controller', []}},
     {env, [
-        {git_sha, lists:sublist(os:cmd("git rev-parse HEAD 2>/dev/null"), 8)},
-        {config_files, [
-            "priv/kube-vxlan-controller.config",
-            "$(HOME)/.config/kube-vxlan-controller/config",
-            "/etc/kube-vxlan-controller/config"
-        ]},
-        {db_file, "db/kube-vxlan-controller.db"},
-        {server, "https://kubernetes.default"},
-        {namespace_file, "/var/run/secrets/kubernetes.io/serviceaccount/namespace"},
-        {ca_cert_file, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"},
-        {token_file, "/var/run/secrets/kubernetes.io/serviceaccount/token"},
-        {selector, "vxlan.default"},
-        {annotation, "vxlan.default/networks"},
-        {configmap_name, "kube-vxlan-controller"},
-        {agent_container_name, "vxlan-controller-agent"},
-        {agent_init_container_name, "vxlan-controller-agent-init"},
-        {fields, "pod,net,fdb"}
+	{git_sha, lists:sublist(os:cmd("git rev-parse HEAD 2>/dev/null"), 8)},
+	{config_files, [
+	    "priv/kube-vxlan-controller.config",
+	    "/etc/kube-vxlan-controller/config"
+	]},
+	{db_file, "db/kube-vxlan-controller.db"},
+	{server, "https://kubernetes.default"},
+	{namespace_file, "/var/run/secrets/kubernetes.io/serviceaccount/namespace"},
+	{ca_cert_file, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"},
+	{token_file, "/var/run/secrets/kubernetes.io/serviceaccount/token"},
+	{selector, "vxlan.default"},
+	{annotation, "vxlan.default/networks"},
+	{configmap_name, "kube-vxlan-controller"},
+	{agent_container_name, "vxlan-controller-agent"},
+	{agent_init_container_name, "vxlan-controller-agent-init"},
+	{fields, "pod,net,fdb"}
     ]}
 ]}.

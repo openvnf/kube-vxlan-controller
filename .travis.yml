@@ -1,0 +1,46 @@
+sudo: required
+dist: bionic
+services:
+  - docker
+git:
+  depth: false
+
+language: erlang
+
+otp_release:
+ - 22.3.4
+ - 23.0.2
+
+install: "true"
+
+env:
+  global:
+    - BUILD_IMAGE="openvnf/kube-vxlan-controller"
+    - DOCKER_USERNAME="openvnfdockhub"
+    - secure: "fn9gwy919gluWuCHRtrBd2ggrkVS3SaMVIN3+vJHi8ZpT5d5pnmJ0xD74LiRkL4rcmn4+d3obcSu6lBpyPzi3NJ2FdDXDGBrkpGqfX4WbElMe8pD9+bEZiaONF3RnC1+1VQ+6nMjrFdIDgXomkFjRW7zK4YNTxTqLOYVr4k4i6htYD7MeUwEU31P5as5KYlqAxckamIHS8M/DHijTyTnVCxTrEjbPc/AFF37tBTieyFEyJaUfYtfZ3YM84obWiD4odAsMPX8YLCirgjpz+eyjgdeA7967FmUuuPZjHyzhnBQf1bmEDQG7VVFvjxlcE8BYPrLMv/SRdK+pm5ouL/Wlim8ACPAurH9/xiyisaG1mTEb9h+aEkHXVzW6G3ciYHgPh/OagceZLnW+AyUep4O7Wu9lxdTeMrQ0cAvETOJWQqYlqYwyCYlOKiVRlnEAe0dk6tmTcSMd+jSp0eq5nWKRC2/fGkje3hyWvK7xGKTn6ekZUCDiNidhMbYq+Y9p0M4gw/xNa6z+u17GSNXtZVpvqUF7MQ6GQk9CKeXPz8fyCTg57xUa/BTA3W0twiItVzZRwQB/bN08VPSjuJKde2OxjXD0WQB2j9NCyW3veh7OS3AxxClZNQ1lwcnWP4zc4b/P76NObU+UpIoWILYSvkohUdD62h4McDc9OYks8qMaN8="
+
+before_script:
+  - wget https://s3.amazonaws.com/rebar3/rebar3
+  - chmod u+x ./rebar3
+
+script:
+  - ./rebar3 compile
+  - ./rebar3 do xref
+
+jobs:
+  include:
+    -
+    - stage: docker
+      otp_release: 23.0.2
+      script:
+        - docker build -t $BUILD_IMAGE -f docker/Dockerfile .
+      after_success:
+        - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+        - export GIT_DESCRIBE=`git describe`
+        - export TAG=`if [ "$TRAVIS_EVENT_TYPE" == "pull_request" ]; then echo PR-$TRAVIS_PULL_REQUEST_BRANCH\_$TRAVIS_PULL_REQUEST_SHA ; else echo $TRAVIS_BRANCH\_$GIT_DESCRIBE ; fi`
+        - export TAG=`echo "$TAG" | sed -e 's,/,-,g'`
+        - echo "Docker image $BUILD_IMAGE:$TAG"
+        - if [ "$TAG" == "master" ]; then export TAG="latest"; fi
+        - docker tag $BUILD_IMAGE $BUILD_IMAGE:$TAG
+        - docker push $BUILD_IMAGE:$TAG
+        - echo "docker push done"
