@@ -53,7 +53,6 @@ init([#{server := Server, ca_cert_file := CaCertFile} = Config]) ->
 
     {Host, Port} = ?K8s:uri_parse(Server),
     Opts = #{connect_timeout => ?TIMEOUT,
-	     protocols => [http2],
 	     transport => tls,
 	     tls_opts => [{cacertfile, CaCertFile}]
 	    },

@@ -42,7 +42,6 @@ init([#{server := Server, ca_cert_file := CaCertFile}]) ->
 
     {Host, Port} = uri_parse(Server),
     Opts = #{connect_timeout => ?TIMEOUT,
-	     protocols => [http2],
 	     transport => tls,
 	     tls_opts => [{cacertfile, CaCertFile}]
 	    },
@@ -119,7 +118,6 @@ ws_connect(Resource, Query,
 	   #{server := Server, ca_cert_file := CaCertFile, token := Token}) ->
     {Host, Port} = uri_parse(Server),
     Opts = #{connect_timeout => ?HttpStreamRecvTimeout,
-	     protocols => [http],
 	     transport => tls,
 	     tls_opts => [{cacertfile, CaCertFile}]
 	    },
