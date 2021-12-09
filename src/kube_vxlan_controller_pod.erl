@@ -50,8 +50,8 @@ stop(Server) ->
 init_state(Server) ->
     gen_statem:cast(Server, init).
 
-process_event(Cycle, Type, #{pod_name := Name} = Pod, Config) ->
-    ?PodReg:process_event(#uid{id = Name, cycle = Cycle}, {Type, Pod}, Config).
+process_event(Cycle, Type, #{pod_name := Name, pod_uid := PodUid} = Pod, Config) ->
+    ?PodReg:process_event(#uid{id = Name, uid = PodUid, cycle = Cycle}, {Type, Pod}, Config).
 
 bridge_cmd(Action, Version, #{owner := Pid} = Pod, NetNames, IP) ->
     gen_statem:cast(Pid, {bridge_cmd, Action, Version, Pod, NetNames, IP}).

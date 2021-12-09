@@ -1,1 +1,1 @@
--record(uid, {id, cycle}).
+-record(uid, {id, uid, cycle}).
